@@ -1,0 +1,25 @@
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/coverage/
+**/.expo/
+**/web-build/
+**/*.tsbuildinfo
+
+# Local configuration and secrets
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+
+# Runtime data
+backend/uploads/
+**/*.log
+
+# Nested repository metadata
+frontend/.git/
+**/.claude/
+
+# IDE and OS files
+.DS_Store
+Thumbs.db

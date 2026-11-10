@@ -2,6 +2,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { RequestHandler, Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+import { Clock } from '../common/clock';
 import { asyncHandler } from '../common/async-handler';
 import {
   ValidationError,
@@ -9,6 +11,12 @@ import {
   validateBody,
 } from '../common/validation-pipe';
 import { HttpError } from '../common/http-error';
+import {
+  CreateAppointmentInput,
+  createAppointmentSchema,
+  listAppointmentsQuerySchema,
+} from '../appointments/appointment.schema';
+import { AppointmentService } from '../appointments/appointments.service';
 import { MaintenanceService } from '../maintenances/maintenance.service';
 import {
   CreateMaintenanceInput,
@@ -40,9 +48,11 @@ export function createVehiclesRouter(
   vehiclesService: VehiclesService,
   partsService: PartsService,
   maintenanceService: MaintenanceService,
+  appointmentService: AppointmentService,
   access: VehicleAccessService,
   auth: RequestHandler,
   vinDecoder: VinDecoderService,
+  clock: Clock,
 ): Router {
   const router = Router();
 
@@ -203,6 +213,40 @@ export function createVehiclesRouter(
         req.params.maintenanceId,
       );
       res.status(204).end();
+    }),
+  );
+
+  router.get(
+    '/:vehicleId/appointments',
+    member,
+    asyncHandler(async (req, res) => {
+      const parsed = listAppointmentsQuerySchema.safeParse(req.query);
+
+      if (!parsed.success) {
+        throw new ValidationError(formatIssues(parsed.error));
+      }
+
+      res.json(
+        await appointmentService.listForVehicle(
+          req.auth.userId,
+          req.params.vehicleId,
+          parsed.data,
+        ),
+      );
+    }),
+  );
+
+  router.post(
+    '/:vehicleId/appointments',
+    member,
+    validateBody(z.lazy(() => createAppointmentSchema(clock.now()))),
+    asyncHandler(async (req, res) => {
+      const appointment = await appointmentService.create(
+        req.auth.userId,
+        req.params.vehicleId,
+        req.body as CreateAppointmentInput,
+      );
+      res.status(201).json(appointment);
     }),
   );
 

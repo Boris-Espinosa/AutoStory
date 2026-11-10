@@ -2,10 +2,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Appointment } from './Appointment';
 import { User } from './User';
 import { Vehicle } from './Vehicle';
 import { Workshop } from './Workshop';
@@ -45,6 +47,13 @@ export class Maintenance {
   @Column({ name: 'registered_by_user_id', type: 'varchar', length: 64, nullable: true })
   registeredByUserId!: string | null;
 
+  @Index('UQ_maintenances_appointment', {
+    unique: true,
+    where: `"appointment_id" IS NOT NULL`,
+  })
+  @Column({ name: 'appointment_id', type: 'uuid', nullable: true })
+  appointmentId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
@@ -59,4 +68,8 @@ export class Maintenance {
   @ManyToOne(() => User, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'registered_by_user_id' })
   registeredBy!: User | null;
+
+  @ManyToOne(() => Appointment, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'appointment_id' })
+  appointment!: Appointment | null;
 }

@@ -55,6 +55,12 @@ export const createMaintenanceSchema = z
       .nullable()
       .optional()
       .transform((value) => value ?? null),
+    appointmentId: z
+      .string({ invalid_type_error: 'La cita seleccionada no es válida.' })
+      .uuid('La cita seleccionada no es válida.')
+      .nullable()
+      .optional()
+      .transform((value) => value ?? null),
     partIds: z
       .array(
         z
@@ -75,7 +81,9 @@ export const createMaintenanceSchema = z
 export type CreateMaintenanceInput = z.infer<typeof createMaintenanceSchema>;
 
 /** Mismas validaciones que al crear; cada campo es opcional. */
-export const updateMaintenanceSchema = createMaintenanceSchema.partial();
+export const updateMaintenanceSchema = createMaintenanceSchema
+  .partial()
+  .omit({ appointmentId: true });
 
 export type UpdateMaintenanceInput = z.infer<typeof updateMaintenanceSchema>;
 

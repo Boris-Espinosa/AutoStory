@@ -1,6 +1,9 @@
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { z } from 'zod';
+import { Clock } from '../common/clock';
 import { HttpError } from '../common/http-error';
+import { Appointment, AppointmentStatus } from '../entities/Appointment';
+import { AppointmentReminder } from '../entities/AppointmentReminder';
 import { Maintenance } from '../entities/Maintenance';
 import { Part } from '../entities/Part';
 import { User } from '../entities/User';
@@ -19,6 +22,7 @@ export interface MaintenanceRepositories {
   parts: Repository<Part>;
   workshops: Repository<Workshop>;
   users: Repository<User>;
+  clock: Clock;
 }
 
 export interface MaintenancePartView {
@@ -40,6 +44,7 @@ export interface MaintenanceView {
   laborCost: number;
   workshop: { id: string; name: string } | null;
   registeredBy: { id: string; name: string | null } | null;
+  appointmentId: string | null;
   parts: MaintenancePartView[];
   partsTotal: number;
   totalCost: number;
@@ -77,6 +82,14 @@ export class MaintenanceService {
           }
         }
 
+        if (input.appointmentId) {
+          await this.assertAppointmentUsable(
+            manager,
+            vehicleId,
+            input.appointmentId,
+          );
+        }
+
         const maintenance = manager.create(Maintenance, {
           vehicleId,
           serviceDate: input.serviceDate,
@@ -86,6 +99,7 @@ export class MaintenanceService {
           laborCost: input.laborCost,
           workshopId: input.workshopId,
           registeredByUserId: userId,
+          appointmentId: input.appointmentId,
         });
         await manager.save(maintenance);
 
@@ -118,6 +132,21 @@ export class MaintenanceService {
           .where('id = :vehicleId', { vehicleId })
           .setParameter('serviceMileage', input.serviceMileage)
           .execute();
+
+        if (input.appointmentId) {
+          await manager.update(
+            Appointment,
+            { id: input.appointmentId },
+            {
+              status: AppointmentStatus.COMPLETED,
+              completedAt: this.repositories.clock.now(),
+            },
+          );
+          await manager.delete(AppointmentReminder, {
+            appointmentId: input.appointmentId,
+            processedAt: IsNull(),
+          });
+        }
 
         return maintenance.id;
       },
@@ -232,12 +261,39 @@ export class MaintenanceService {
     });
   }
 
+  private async assertAppointmentUsable(
+    manager: EntityManager,
+    vehicleId: string,
+    appointmentId: string,
+  ): Promise<void> {
+    // Bloquea la cita para que dos mantenciones simultáneas no la vinculen.
+    const appointment = await manager.findOne(Appointment, {
+      where: { id: appointmentId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (
+      !appointment ||
+      appointment.vehicleId !== vehicleId ||
+      appointment.status !== AppointmentStatus.SCHEDULED
+    ) {
+      throw new HttpError(400, 'La cita no es válida para esta mantención');
+    }
+
+    const linked = await manager.findOne(Maintenance, {
+      where: { appointmentId },
+    });
+
+    if (linked) {
+      throw new HttpError(400, 'La cita no es válida para esta mantención');
+    }
+  }
+
   private async findForWrite(
     manager: EntityManager,
     vehicleId: string,
     maintenanceId: string,
-  ): Promise<Maintenance> {
-    if (!uuidSchema.safeParse(maintenanceId).success) {
+  ): Promise<Maintenance> {    if (!uuidSchema.safeParse(maintenanceId).success) {
       throw new HttpError(404, 'Mantención no encontrada.');
     }
 
@@ -411,6 +467,7 @@ export class MaintenanceService {
         registeredBy: registeredBy
           ? { id: registeredBy.id, name: registeredBy.name }
           : null,
+        appointmentId: row.appointmentId,
         parts: maintenanceParts,
         partsTotal,
         totalCost: row.laborCost + partsTotal,

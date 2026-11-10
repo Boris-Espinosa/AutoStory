@@ -49,6 +49,7 @@ API REST de AutoStory construida con ExpressJS + TypeScript + PostgreSQL + TypeO
 | `npm run build`   | Compila TypeScript a `dist/`.            |
 | `npm start`       | Ejecuta la compilación de `dist/`.       |
 | `npm run seed`    | Carga los datos de prueba.               |
+| `npm run dev:adopt -- <origen> <clerkId> [--dry-run]` | Reasigna los datos de un usuario local a un id de Clerk (solo desarrollo). |
 | `npm test`        | Ejecuta los tests unitarios con Jest.    |
 | `npm run test:integration` | Tests de integración contra `TEST_DATABASE_URL`. |
 | `npm run migration:run` | Aplica las migraciones pendientes. |
@@ -71,6 +72,7 @@ curl -H "x-user-id: user-1" http://localhost:3000/vehicles
 | Método | Ruta                                   | Descripción                                                  |
 | ------ | -------------------------------------- | ------------------------------------------------------------ |
 | GET    | `/health`                              | Estado de la API (`{ "status": "ok" }`).                     |
+| GET    | `/me`                                  | Perfil del usuario autenticado (`{ id, name, email, imageUrl }`). |
 | POST   | `/parts`                               | Crea un repuesto. Responde `201` con el repuesto creado.     |
 | POST   | `/vehicles`                            | Registra un vehículo. Responde `201` con el vehículo creado. |
 | GET    | `/vehicles`                            | Lista los vehículos del usuario.                             |

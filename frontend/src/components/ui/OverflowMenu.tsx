@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   itemBorder: {
     borderTopColor: colors.borderSubtle,
-    borderTopWidth: 1,
+    borderTopWidth: layout.borderWidth,
   },
   itemPressed: {
     backgroundColor: colors.primarySoft,

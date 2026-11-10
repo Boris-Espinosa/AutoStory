@@ -142,6 +142,6 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderTopColor: colors.borderSubtle,
-    borderTopWidth: 1,
+    borderTopWidth: layout.borderWidth,
   },
 });

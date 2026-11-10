@@ -445,6 +445,15 @@ export default function NewVehicleScreen() {
     }
   };
 
+  const footer = (
+    <FormFooter
+      loading={isSubmitting}
+      onCancel={handleCancel}
+      onSubmit={() => void handleSubmit(onSubmit, onInvalid)()}
+      submitLabel="Guardar Vehículo"
+    />
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -453,20 +462,13 @@ export default function NewVehicleScreen() {
       <Screen
         contentContainerStyle={styles.screenContent}
         edges={['top']}
-        footer={
-          <FormFooter
-            loading={isSubmitting}
-            onCancel={handleCancel}
-            onSubmit={() => void handleSubmit(onSubmit, onInvalid)()}
-            submitLabel="Guardar Vehículo"
-          />
-        }
+        footer={isWide ? undefined : footer}
         maxWidth={layout.formMaxWidth}
       >
         <AppHeader onBack={handleCancel} title="Nuevo Vehículo" />
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, isWide && styles.contentWide]}
           keyboardShouldPersistTaps="handled"
           ref={scrollViewRef}
           style={styles.flex}
@@ -698,6 +700,8 @@ export default function NewVehicleScreen() {
               </Pressable>
             )}
           </View>
+
+          {isWide ? footer : null}
         </ScrollView>
 
         <ConfirmModal
@@ -725,6 +729,9 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingBottom: layout.touchTarget + spacing.xxl * 2,
+  },
+  contentWide: {
+    paddingBottom: spacing.xxl,
   },
   fieldGroup: {
     gap: spacing.xs,

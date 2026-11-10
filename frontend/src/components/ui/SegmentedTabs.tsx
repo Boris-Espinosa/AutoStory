@@ -82,7 +82,7 @@ export function SegmentedTabs({
 const styles = StyleSheet.create({
   container: {
     borderBottomColor: colors.borderSubtle,
-    borderBottomWidth: 1,
+    borderBottomWidth: layout.borderWidth,
   },
   content: {
     flexGrow: 1,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   tab: {
     alignItems: 'center',
     borderBottomColor: colors.transparent,
-    borderBottomWidth: 2,
+    borderBottomWidth: layout.borderWidthStrong,
     flexDirection: 'row',
     gap: spacing.sm,
     justifyContent: 'center',

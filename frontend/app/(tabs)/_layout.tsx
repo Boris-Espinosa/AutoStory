@@ -2,20 +2,35 @@ import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useUnreadCount } from '../../src/api/notifications';
 import { Icon, IconName } from '../../src/components/ui/Icon';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
-import { colors, layout, radius, spacing, typography } from '../../src/theme';
+import {
+  colors,
+  fontSizes,
+  layout,
+  radius,
+  spacing,
+  typography,
+} from '../../src/theme';
 
 interface Section {
   name: string;
-  title: string;
+  label: string;
   icon: IconName;
+  badgeCount?: number;
 }
 
 const SECTIONS: Section[] = [
-  { name: 'index', title: 'Vehículos', icon: 'car-outline' },
-  { name: 'account', title: 'Cuenta', icon: 'person-circle-outline' },
+  { name: 'index', label: 'Vehículos', icon: 'car-outline' },
+  { name: 'appointments', label: 'Citas', icon: 'calendar-outline' },
+  { name: 'notifications', label: 'Avisos', icon: 'notifications-outline' },
+  { name: 'account', label: 'Cuenta', icon: 'person-circle-outline' },
 ];
+
+function badgeLabel(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}
 
 interface SideNavProps extends BottomTabBarProps {
   sections: Section[];
@@ -45,7 +60,7 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
 
         return (
           <Pressable
-            accessibilityLabel={section.title}
+            accessibilityLabel={section.label}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             key={route.key}
@@ -67,8 +82,16 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
                 active && styles.sidebarLabelActive,
               ]}
             >
-              {section.title}
+              {section.label}
             </Text>
+
+            {section.badgeCount ? (
+              <View style={styles.sidebarBadge}>
+                <Text style={styles.sidebarBadgeText}>
+                  {badgeLabel(section.badgeCount)}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         );
       })}
@@ -78,6 +101,12 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
 
 export default function TabsLayout() {
   const { isWide } = useBreakpoint();
+  const unreadCount = useUnreadCount().data ?? 0;
+  const sections = SECTIONS.map((section) =>
+    section.name === 'notifications'
+      ? { ...section, badgeCount: unreadCount }
+      : section,
+  );
 
   return (
     <Tabs
@@ -90,16 +119,21 @@ export default function TabsLayout() {
       }}
       tabBar={
         isWide
-          ? (props) => <SideNav {...props} sections={SECTIONS} />
+          ? (props) => <SideNav {...props} sections={sections} />
           : undefined
       }
     >
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <Tabs.Screen
           key={section.name}
           name={section.name}
           options={{
-            title: section.title,
+            title: section.label,
+            tabBarBadge:
+              section.badgeCount && section.badgeCount > 0
+                ? badgeLabel(section.badgeCount)
+                : undefined,
+            tabBarBadgeStyle: styles.tabBarBadge,
             tabBarIcon: ({ color, size }) => (
               <Icon color={color as string} name={section.icon} size={size} />
             ),
@@ -115,10 +149,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.borderSubtle,
   },
+  tabBarBadge: {
+    backgroundColor: colors.primary,
+    color: colors.primaryText,
+    fontSize: fontSizes.xs,
+    fontWeight: '700',
+  },
   sidebar: {
     backgroundColor: colors.surface,
     borderRightColor: colors.borderSubtle,
-    borderRightWidth: 1,
+    borderRightWidth: layout.borderWidth,
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     width: layout.sidebarWidth,
@@ -152,5 +192,20 @@ const styles = StyleSheet.create({
   },
   sidebarLabelActive: {
     color: colors.primary,
+  },
+  sidebarBadge: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    justifyContent: 'center',
+    marginLeft: 'auto',
+    minWidth: layout.countBadgeMinWidth,
+    paddingHorizontal: spacing.xxs,
+    paddingVertical: layout.hairline,
+  },
+  sidebarBadgeText: {
+    ...typography.caption,
+    color: colors.primaryText,
+    fontWeight: '700',
   },
 });

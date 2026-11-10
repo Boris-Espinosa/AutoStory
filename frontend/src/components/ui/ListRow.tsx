@@ -9,6 +9,8 @@ export interface ListRowProps {
   subtitle?: string;
   value?: string;
   badge?: ReactNode;
+  leading?: ReactNode;
+  trailing?: ReactNode;
   chevron?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
@@ -20,6 +22,8 @@ export function ListRow({
   subtitle,
   value,
   badge,
+  leading,
+  trailing,
   chevron = false,
   onPress,
   accessibilityLabel,
@@ -27,6 +31,8 @@ export function ListRow({
 }: ListRowProps) {
   const content = (
     <>
+      {leading}
+
       <View style={styles.main}>
         <Text numberOfLines={1} style={styles.title}>
           {title}
@@ -40,6 +46,7 @@ export function ListRow({
       </View>
 
       {value ? <Text style={styles.value}>{value}</Text> : null}
+      {trailing}
       {chevron ? (
         <Icon color={colors.textSecondary} name="chevron-forward" size={18} />
       ) : null}

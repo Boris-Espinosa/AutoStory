@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useLocalReminders } from '../src/notifications/local';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -13,6 +15,8 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  useLocalReminders();
+
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

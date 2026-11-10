@@ -27,6 +27,7 @@ import { AppHeader } from '../../../../src/components/ui/AppHeader';
 import { ConfirmModal } from '../../../../src/components/ui/ConfirmModal';
 import { FormFooter } from '../../../../src/components/ui/FormFooter';
 import { Screen } from '../../../../src/components/ui/Screen';
+import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 import { useFormScroll } from '../../../../src/hooks/useFormScroll';
 import {
   colors,
@@ -103,6 +104,7 @@ export default function AddPartScreen() {
     : params.vehicleId ?? '';
 
   const vehiclesQuery = useVehicles();
+  const { isWide } = useBreakpoint();
   const { scrollViewRef, trackField, scrollToFirst } = useFormScroll();
 
   const {
@@ -247,6 +249,17 @@ export default function AddPartScreen() {
     setFormMessage('Revisa los datos ingresados');
   };
 
+  const footer = (
+    <FormFooter
+      loading={isSaving}
+      onCancel={handleCancel}
+      onSubmit={() => {
+        void handleSubmit(onSubmit, onInvalid)();
+      }}
+      submitLabel="Guardar Repuesto"
+    />
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -255,22 +268,13 @@ export default function AddPartScreen() {
       <Screen
         contentContainerStyle={styles.screenContent}
         edges={['top']}
-        footer={
-          <FormFooter
-            loading={isSaving}
-            onCancel={handleCancel}
-            onSubmit={() => {
-              void handleSubmit(onSubmit, onInvalid)();
-            }}
-            submitLabel="Guardar Repuesto"
-          />
-        }
+        footer={isWide ? undefined : footer}
         maxWidth={layout.formMaxWidth}
       >
         <AppHeader onBack={handleCancel} title="Añadir Repuesto" />
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, isWide && styles.contentWide]}
           keyboardShouldPersistTaps="handled"
           ref={scrollViewRef}
           style={styles.flex}
@@ -402,6 +406,8 @@ export default function AddPartScreen() {
           ) : null}
 
           <MessageBanner message={serverError} tone="error" />
+
+          {isWide ? footer : null}
         </ScrollView>
 
         <ConfirmModal
@@ -429,6 +435,9 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingBottom: layout.touchTarget + spacing.xxl * 2,
+  },
+  contentWide: {
+    paddingBottom: spacing.xxl,
   },
   fieldGroup: {
     gap: spacing.xs,

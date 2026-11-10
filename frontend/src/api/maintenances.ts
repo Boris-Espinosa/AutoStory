@@ -28,6 +28,7 @@ export interface Maintenance {
   laborCost: number;
   workshop: { id: string; name: string } | null;
   registeredBy: { id: string; name: string | null } | null;
+  appointmentId: string | null;
   parts: MaintenancePart[];
   partsTotal: number;
   totalCost: number;
@@ -57,6 +58,7 @@ export interface CreateMaintenancePayload {
   diagnosis: string | null;
   laborCost: number;
   workshopId: string | null;
+  appointmentId: string | null;
   partIds: string[];
 }
 

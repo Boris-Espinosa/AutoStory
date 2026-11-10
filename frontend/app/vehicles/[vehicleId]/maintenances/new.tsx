@@ -5,7 +5,6 @@ import { Controller, FieldErrors, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { z } from 'zod';
+import { useAppointment } from '../../../../src/api/appointments';
 import { ApiError } from '../../../../src/api/client';
 import {
   useCreateMaintenance,
@@ -22,11 +22,8 @@ import {
 } from '../../../../src/api/maintenances';
 import { useUnassignedVehicleParts } from '../../../../src/api/parts';
 import { useVehicles } from '../../../../src/api/vehicles';
-import {
-  useCreateWorkshop,
-  useWorkshops,
-  Workshop,
-} from '../../../../src/api/workshops';
+import { Workshop, useWorkshops } from '../../../../src/api/workshops';
+import { CreateWorkshopModal } from '../../../../src/components/CreateWorkshopModal';
 import { MessageBanner } from '../../../../src/components/MessageBanner';
 import { SelectField, SelectOption } from '../../../../src/components/SelectField';
 import { TextField } from '../../../../src/components/TextField';
@@ -57,6 +54,7 @@ import {
   parseAmount,
   todayDisplayDate,
 } from '../../../../src/utils/format';
+import { formatDisplayDate } from '../../../../src/utils/datetime';
 
 const NEW_WORKSHOP_VALUE = '__new_workshop__';
 const MAX_MILEAGE = 2_000_000;
@@ -109,6 +107,7 @@ export default function NewMaintenanceScreen() {
   const params = useLocalSearchParams<{
     vehicleId?: string | string[];
     maintenanceId?: string | string[];
+    appointmentId?: string | string[];
   }>();
   const vehicleId = Array.isArray(params.vehicleId)
     ? params.vehicleId[0] ?? ''
@@ -116,7 +115,15 @@ export default function NewMaintenanceScreen() {
   const maintenanceId = Array.isArray(params.maintenanceId)
     ? params.maintenanceId[0] ?? ''
     : params.maintenanceId ?? '';
+  const appointmentId = Array.isArray(params.appointmentId)
+    ? params.appointmentId[0] ?? ''
+    : params.appointmentId ?? '';
   const isEdit = Boolean(maintenanceId);
+
+  const [linkedAppointmentId, setLinkedAppointmentId] = useState<
+    string | null
+  >(appointmentId || null);
+  const linkedAppointmentIdRef = useRef<string | null>(appointmentId || null);
 
   const vehiclesQuery = useVehicles();
   const vehicle = vehiclesQuery.data?.find((item) => item.id === vehicleId);
@@ -126,13 +133,15 @@ export default function NewMaintenanceScreen() {
     vehicleId || null,
     maintenanceId || null,
   );
+  const appointmentQuery = useAppointment(
+    isEdit ? null : linkedAppointmentId,
+  );
   const workshopsQuery = useWorkshops();
   const createMaintenanceMutation = useCreateMaintenance(vehicleId);
   const updateMaintenanceMutation = useUpdateMaintenance(
     vehicleId,
     maintenanceId,
   );
-  const createWorkshopMutation = useCreateWorkshop();
 
   const { isWide } = useBreakpoint();
   const { scrollViewRef, trackField, scrollToFirst } = useFormScroll();
@@ -162,13 +171,10 @@ export default function NewMaintenanceScreen() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [createdWorkshop, setCreatedWorkshop] = useState<Workshop | null>(null);
   const [workshopModalVisible, setWorkshopModalVisible] = useState(false);
-  const [workshopName, setWorkshopName] = useState('');
-  const [workshopAddress, setWorkshopAddress] = useState('');
-  const [workshopPhone, setWorkshopPhone] = useState('');
-  const [workshopNameError, setWorkshopNameError] = useState<string | null>(null);
-  const [workshopError, setWorkshopError] = useState<string | null>(null);
+  const [appointmentInvalid, setAppointmentInvalid] = useState(false);
   const [discardVisible, setDiscardVisible] = useState(false);
   const initialPartIds = useRef<string[]>([]);
+  const preloadedAppointmentRef = useRef(false);
 
   const serviceMileage = watch('serviceMileage');
   const laborCost = watch('laborCost');
@@ -200,6 +206,7 @@ export default function NewMaintenanceScreen() {
   const allWorkshops = createdWorkshop
     ? [...workshops.filter((item) => item.id !== createdWorkshop.id), createdWorkshop]
     : workshops;
+  const linkedAppointment = appointmentQuery.data;
 
   const isSaving =
     isSubmitting ||
@@ -231,6 +238,22 @@ export default function NewMaintenanceScreen() {
     setSelectedPartIds(partIds);
   }, [maintenance?.id, reset]);
 
+  // Al venir desde una cita se precargan solo taller y descripción, editables.
+  useEffect(() => {
+    if (isEdit || !linkedAppointment || preloadedAppointmentRef.current) {
+      return;
+    }
+
+    preloadedAppointmentRef.current = true;
+    setValue('description', linkedAppointment.reason, { shouldValidate: true });
+
+    if (linkedAppointment.workshop) {
+      setValue('workshopId', linkedAppointment.workshop.id, {
+        shouldValidate: true,
+      });
+    }
+  }, [isEdit, linkedAppointment, setValue]);
+
   // Un repuesto ya asignado deja de estar disponible y se quita de la selección.
   useEffect(() => {
     if (!partsQuery.data) {
@@ -257,7 +280,7 @@ export default function NewMaintenanceScreen() {
       ? 'Cargando vehículo...'
       : 'Vehículo';
 
-  const currentWorkshop = maintenance?.workshop;
+  const currentWorkshop = maintenance?.workshop ?? linkedAppointment?.workshop;
   const workshopOptions: SelectOption[] = [
     { label: 'Sin taller', value: '' },
     ...(currentWorkshop &&
@@ -320,60 +343,6 @@ export default function NewMaintenanceScreen() {
     );
   };
 
-  const openWorkshopModal = () => {
-    setWorkshopName('');
-    setWorkshopAddress('');
-    setWorkshopPhone('');
-    setWorkshopNameError(null);
-    setWorkshopError(null);
-    setWorkshopModalVisible(true);
-  };
-
-  const closeWorkshopModal = () => {
-    if (createWorkshopMutation.isPending) {
-      return;
-    }
-
-    setWorkshopModalVisible(false);
-  };
-
-  const saveWorkshop = async () => {
-    const name = workshopName.trim();
-
-    if (!name) {
-      setWorkshopNameError('El nombre del taller es obligatorio.');
-      return;
-    }
-
-    setWorkshopNameError(null);
-    setWorkshopError(null);
-
-    try {
-      const workshop = await createWorkshopMutation.mutateAsync({
-        name,
-        address: workshopAddress.trim() || null,
-        phone: workshopPhone.trim() || null,
-      });
-
-      setCreatedWorkshop(workshop);
-      setValue('workshopId', workshop.id, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-      setWorkshopModalVisible(false);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        setWorkshopError(
-          error.status === 409
-            ? 'Ya tienes un taller con ese nombre'
-            : error.message,
-        );
-      } else {
-        setWorkshopError('No se pudo crear el taller. Intenta nuevamente.');
-      }
-    }
-  };
-
   const onSubmit = async (values: FormValues) => {
     setFormMessage(null);
     setServerError(null);
@@ -386,6 +355,7 @@ export default function NewMaintenanceScreen() {
         diagnosis: values.diagnosis.trim() || null,
         laborCost: values.laborCost ? parseAmount(values.laborCost) : 0,
         workshopId: values.workshopId || null,
+        appointmentId: linkedAppointmentIdRef.current,
         partIds: selectedPartIds,
       };
 
@@ -412,6 +382,14 @@ export default function NewMaintenanceScreen() {
       }
 
       setServerError(error.message);
+
+      if (
+        !isEdit &&
+        error.status === 400 &&
+        error.message.toLowerCase().includes('cita')
+      ) {
+        setAppointmentInvalid(true);
+      }
 
       for (const detail of error.details) {
         if (FORM_FIELDS.includes(detail.field as keyof FormValues)) {
@@ -463,6 +441,14 @@ export default function NewMaintenanceScreen() {
     );
   };
 
+  const continueWithoutAppointment = () => {
+    linkedAppointmentIdRef.current = null;
+    setLinkedAppointmentId(null);
+    setAppointmentInvalid(false);
+    setServerError(null);
+    void handleSubmit(onSubmit, onInvalid)();
+  };
+
   if (isEdit && maintenanceQuery.isLoading) {
     return (
       <Screen
@@ -500,6 +486,17 @@ export default function NewMaintenanceScreen() {
     );
   }
 
+  const footer = (
+    <FormFooter
+      loading={isSaving}
+      onCancel={handleCancel}
+      onSubmit={() => {
+        void handleSubmit(onSubmit, onInvalid)();
+      }}
+      submitLabel={isEdit ? 'Guardar cambios' : 'Guardar Mantención'}
+    />
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -508,16 +505,7 @@ export default function NewMaintenanceScreen() {
       <Screen
         contentContainerStyle={styles.screenContent}
         edges={['top']}
-        footer={
-          <FormFooter
-            loading={isSaving}
-            onCancel={handleCancel}
-            onSubmit={() => {
-              void handleSubmit(onSubmit, onInvalid)();
-            }}
-            submitLabel={isEdit ? 'Guardar cambios' : 'Guardar Mantención'}
-          />
-        }
+        footer={isWide ? undefined : footer}
         maxWidth={layout.formMaxWidth}
       >
         <AppHeader
@@ -526,12 +514,22 @@ export default function NewMaintenanceScreen() {
         />
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, isWide && styles.contentWide]}
           keyboardShouldPersistTaps="handled"
           ref={scrollViewRef}
           style={styles.flex}
         >
           <Text style={styles.vehicleLabel}>{vehicleLabel}</Text>
+
+          {linkedAppointment ? (
+            <Text style={styles.appointmentNote}>
+              Desde la cita del{' '}
+              {formatDisplayDate(
+                linkedAppointment.scheduledAt,
+                linkedAppointment.timezone,
+              )}
+            </Text>
+          ) : null}
 
           <MessageBanner message={formMessage} tone="error" />
 
@@ -641,7 +639,7 @@ export default function NewMaintenanceScreen() {
                   label="Taller (opcional)"
                   onChange={(value) => {
                     if (value === NEW_WORKSHOP_VALUE) {
-                      openWorkshopModal();
+                      setWorkshopModalVisible(true);
                       return;
                     }
 
@@ -741,11 +739,21 @@ export default function NewMaintenanceScreen() {
                   params: { vehicleId },
                 })
               }
+              style={isWide ? styles.naturalButton : undefined}
               variant="secondary"
             />
           </View>
 
           <MessageBanner message={serverError} tone="error" />
+
+          {appointmentInvalid ? (
+            <Button
+              label="Continuar sin vincular"
+              onPress={continueWithoutAppointment}
+              style={isWide ? styles.naturalButton : undefined}
+              variant="secondary"
+            />
+          ) : null}
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Costo total:</Text>
@@ -753,6 +761,8 @@ export default function NewMaintenanceScreen() {
               ${formatChileanAmount(String(total))}
             </Text>
           </View>
+
+          {isWide ? footer : null}
         </ScrollView>
 
         <ConfirmModal
@@ -765,66 +775,17 @@ export default function NewMaintenanceScreen() {
           visible={discardVisible}
         />
 
-        <Modal
-          animationType="fade"
-          onRequestClose={closeWorkshopModal}
-          transparent
+        <CreateWorkshopModal
+          onClose={() => setWorkshopModalVisible(false)}
+          onCreated={(workshop) => {
+            setCreatedWorkshop(workshop);
+            setValue('workshopId', workshop.id, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }}
           visible={workshopModalVisible}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Nuevo taller</Text>
-
-              <TextField
-                error={workshopNameError ?? undefined}
-                label="Nombre"
-                maxLength={100}
-                onChangeText={(text) => {
-                  setWorkshopName(text);
-                  setWorkshopNameError(null);
-                }}
-                placeholder="Ej: Taller Central"
-                value={workshopName}
-              />
-
-              <TextField
-                label="Dirección (opcional)"
-                maxLength={200}
-                onChangeText={setWorkshopAddress}
-                placeholder="Ej: Av. Siempre Viva 123"
-                value={workshopAddress}
-              />
-
-              <TextField
-                keyboardType="phone-pad"
-                label="Teléfono (opcional)"
-                maxLength={30}
-                onChangeText={setWorkshopPhone}
-                placeholder="Ej: +56 9 1234 5678"
-                value={workshopPhone}
-              />
-
-              <MessageBanner message={workshopError} tone="error" />
-
-              <View style={styles.modalActions}>
-                <Button
-                  disabled={createWorkshopMutation.isPending}
-                  label="Cancelar"
-                  onPress={closeWorkshopModal}
-                  style={styles.modalButton}
-                  variant="secondary"
-                />
-
-                <Button
-                  label="Guardar"
-                  loading={createWorkshopMutation.isPending}
-                  onPress={() => void saveWorkshop()}
-                  style={styles.modalButton}
-                />
-              </View>
-            </View>
-          </View>
-        </Modal>
+        />
       </Screen>
     </KeyboardAvoidingView>
   );
@@ -842,6 +803,13 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: layout.touchTarget + spacing.xxl * 2,
   },
+  contentWide: {
+    paddingBottom: spacing.xxl,
+  },
+  naturalButton: {
+    alignSelf: 'flex-start',
+    maxWidth: layout.buttonMaxWidth,
+  },
   centered: {
     alignItems: 'center',
     flex: 1,
@@ -852,6 +820,11 @@ const styles = StyleSheet.create({
   vehicleLabel: {
     ...typography.body,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  appointmentNote: {
+    ...typography.caption,
+    color: colors.primaryDark,
     fontWeight: '600',
   },
   fieldRow: {
@@ -943,32 +916,5 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: spacing.xs,
-  },
-  modalBackdrop: {
-    alignItems: 'center',
-    backgroundColor: colors.overlay,
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    gap: spacing.md,
-    maxWidth: layout.modalMaxWidth,
-    padding: spacing.xl,
-    width: '100%',
-  },
-  modalTitle: {
-    color: colors.textPrimary,
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  modalButton: {
-    flex: 1,
   },
 });

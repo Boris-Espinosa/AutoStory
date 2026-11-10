@@ -210,6 +210,21 @@ export default function MaintenanceDetailScreen() {
             </Card>
           ) : null}
 
+          {maintenance.appointmentId ? (
+            <Card style={styles.card}>
+              <ListRow
+                chevron
+                onPress={() =>
+                  router.push({
+                    pathname: '/appointments/[appointmentId]',
+                    params: { appointmentId: maintenance.appointmentId },
+                  })
+                }
+                title="Cita asociada"
+              />
+            </Card>
+          ) : null}
+
           <Card style={styles.card}>
             <Text style={styles.blockLabel}>Registrada por</Text>
             <Text style={styles.blockText}>{registeredByLabel}</Text>
@@ -328,7 +343,7 @@ const styles = StyleSheet.create({
   },
   partBorder: {
     borderTopColor: colors.borderSubtle,
-    borderTopWidth: 1,
+    borderTopWidth: layout.borderWidth,
   },
   divider: {
     backgroundColor: colors.borderSubtle,

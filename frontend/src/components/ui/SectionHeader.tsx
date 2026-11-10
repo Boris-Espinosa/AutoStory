@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { colors, fontSizes, layout, spacing, typography } from '../../theme';
 
 export interface SectionHeaderProps {
   title: string;
+  badge?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -11,6 +13,7 @@ export interface SectionHeaderProps {
 
 export function SectionHeader({
   title,
+  badge,
   actionLabel,
   onAction,
   style,
@@ -18,6 +21,7 @@ export function SectionHeader({
   return (
     <View style={[styles.container, style]}>
       <Text style={styles.title}>{title}</Text>
+      {badge}
 
       {actionLabel && onAction ? (
         <Pressable

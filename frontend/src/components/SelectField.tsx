@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   sheetHeader: {
     alignItems: 'center',
     borderBottomColor: colors.borderSubtle,
-    borderBottomWidth: 1,
+    borderBottomWidth: layout.borderWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   option: {
     alignItems: 'center',
     borderBottomColor: colors.background,
-    borderBottomWidth: 1,
+    borderBottomWidth: layout.borderWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,

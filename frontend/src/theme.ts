@@ -109,6 +109,8 @@ export const layout = {
   inputMinHeight: 48,
   suffixReserve: 46,
   emptyMinHeight: 160,
+  buttonMinWidth: 120,
+  buttonMaxWidth: 320,
   menuHandleWidth: 40,
   menuHandleHeight: 4,
   borderWidth: 1,

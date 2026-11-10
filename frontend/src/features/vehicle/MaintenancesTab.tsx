@@ -120,6 +120,7 @@ export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
               label="Cargar más"
               loading={listQuery.isFetchingNextPage}
               onPress={() => void listQuery.fetchNextPage()}
+              style={size === 'compact' ? undefined : styles.naturalButton}
               variant="secondary"
             />
           ) : null}
@@ -159,9 +160,13 @@ const styles = StyleSheet.create({
   listCard: {
     paddingVertical: spacing.none,
   },
+  naturalButton: {
+    alignSelf: 'center',
+    maxWidth: layout.buttonMaxWidth,
+  },
   rowBorder: {
     borderTopColor: colors.borderSubtle,
-    borderTopWidth: 1,
+    borderTopWidth: layout.borderWidth,
   },
   meta: {
     alignItems: 'center',

@@ -1,15 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
+import Head from 'expo-router/head';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import { API_BASE_URL, ApiError } from '../../../src/api/client';
+import { useAppointments } from '../../../src/api/appointments';
 import {
   useExpensesSummary,
   useLatestMaintenances,
@@ -33,6 +36,7 @@ import { OverflowMenu } from '../../../src/components/ui/OverflowMenu';
 import { Screen } from '../../../src/components/ui/Screen';
 import { SectionHeader } from '../../../src/components/ui/SectionHeader';
 import { SegmentedTabs } from '../../../src/components/ui/SegmentedTabs';
+import { AppointmentsList } from '../../../src/features/appointments/AppointmentsList';
 import { MaintenancesTab } from '../../../src/features/vehicle/MaintenancesTab';
 import { PartsTab } from '../../../src/features/vehicle/PartsTab';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
@@ -44,6 +48,11 @@ import {
   spacing,
   typography,
 } from '../../../src/theme';
+import {
+  formatDayMonth,
+  formatRelativeDay,
+  formatTime24,
+} from '../../../src/utils/datetime';
 import {
   formatChileanAmount,
   isoDateToDisplay,
@@ -57,9 +66,10 @@ const TABS = [
   { key: 'summary', label: 'Resumen' },
   { key: 'maintenances', label: 'Mantenciones' },
   { key: 'parts', label: 'Repuestos' },
+  { key: 'appointments', label: 'Citas' },
 ];
 
-type TabKey = 'summary' | 'maintenances' | 'parts';
+type TabKey = 'summary' | 'maintenances' | 'parts' | 'appointments';
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -81,15 +91,34 @@ function SummaryTab({
 }) {
   const summaryQuery = useExpensesSummary(vehicle.id);
   const latestQuery = useLatestMaintenances(vehicle.id);
+  const appointmentsQuery = useAppointments('upcoming', vehicle.id);
   const summary = summaryQuery.data;
   const maintenances = latestQuery.data?.items ?? [];
-  const isLoading = summaryQuery.isLoading || latestQuery.isLoading;
-  const isError = summaryQuery.isError || latestQuery.isError;
+  const nextAppointment = appointmentsQuery.data?.pages[0]?.items[0] ?? null;
+  const isLoading =
+    summaryQuery.isLoading ||
+    latestQuery.isLoading ||
+    appointmentsQuery.isLoading;
+  const isError =
+    summaryQuery.isError || latestQuery.isError || appointmentsQuery.isError;
 
   const retry = () => {
     void summaryQuery.refetch();
     void latestQuery.refetch();
+    void appointmentsQuery.refetch();
   };
+
+  const openNewAppointment = () =>
+    router.push({
+      pathname: '/appointments/new',
+      params: { vehicleId: vehicle.id },
+    });
+
+  const openAppointment = (appointmentId: string) =>
+    router.push({
+      pathname: '/appointments/[appointmentId]',
+      params: { appointmentId },
+    });
 
   const openNewMaintenance = () =>
     router.push({
@@ -116,6 +145,16 @@ function SummaryTab({
     );
   }
 
+  const nextDayMonth = nextAppointment
+    ? formatDayMonth(nextAppointment.scheduledAt, nextAppointment.timezone)
+    : null;
+  const nextTime = nextAppointment
+    ? formatTime24(nextAppointment.scheduledAt, nextAppointment.timezone)
+    : null;
+  const nextRelative = nextAppointment
+    ? formatRelativeDay(nextAppointment.scheduledAt, nextAppointment.timezone)
+    : null;
+
   return (
     <View style={styles.tabContent}>
       <Card style={styles.totalCard}>
@@ -141,13 +180,55 @@ function SummaryTab({
         />
       </View>
 
+      <Card
+        accessibilityLabel={
+          nextAppointment
+            ? `Próxima cita: ${nextAppointment.reason}`
+            : undefined
+        }
+        onPress={
+          nextAppointment
+            ? () => openAppointment(nextAppointment.id)
+            : undefined
+        }
+        style={styles.nextCard}
+      >
+        <Text style={styles.nextLabel}>Próxima cita</Text>
+
+        {nextAppointment && nextDayMonth && nextTime && nextRelative ? (
+          <View style={styles.nextRow}>
+            <View style={styles.nextInfo}>
+              <Text style={styles.nextDate}>
+                {nextDayMonth.day} {nextDayMonth.month.toLowerCase()} ·{' '}
+                {nextTime}
+              </Text>
+              <Text numberOfLines={1} style={styles.nextReason}>
+                {nextAppointment.reason}
+              </Text>
+            </View>
+            <Badge label={nextRelative} />
+          </View>
+        ) : (
+          <View style={styles.nextRow}>
+            <Text style={styles.nextEmpty}>Sin citas próximas</Text>
+            <Pressable
+              accessibilityLabel="Programar cita"
+              accessibilityRole="link"
+              onPress={openNewAppointment}
+              style={styles.linkTarget}
+            >
+              <Text style={styles.link}>Programar cita</Text>
+            </Pressable>
+          </View>
+        )}
+      </Card>
+
       <SectionHeader title="Acciones rápidas" />
 
       <View style={[styles.quickActions, isWide && styles.quickActionsWide]}>
         <Button
           label="Registrar mantención"
           onPress={openNewMaintenance}
-          style={isWide ? styles.quickAction : undefined}
           variant="secondary"
         />
         <Button
@@ -158,7 +239,6 @@ function SummaryTab({
               params: { vehicleId: vehicle.id },
             })
           }
-          style={isWide ? styles.quickAction : undefined}
           variant="secondary"
         />
       </View>
@@ -178,6 +258,7 @@ function SummaryTab({
           <Button
             label="Registrar mantención"
             onPress={openNewMaintenance}
+            style={isWide ? styles.naturalButton : undefined}
             variant="secondary"
           />
         </View>
@@ -228,7 +309,11 @@ export default function VehicleDetailScreen() {
     : params.vehicleId ?? '';
   const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const activeTab: TabKey =
-    tabParam === 'maintenances' || tabParam === 'parts' ? tabParam : 'summary';
+    tabParam === 'maintenances' ||
+    tabParam === 'parts' ||
+    tabParam === 'appointments'
+      ? tabParam
+      : 'summary';
 
   const queryClient = useQueryClient();
   const vehiclesQuery = useVehicles();
@@ -302,6 +387,10 @@ export default function VehicleDetailScreen() {
 
   return (
     <Screen maxWidth={layout.detailMaxWidth} scroll>
+      <Head>
+        <title>{`${vehicle?.licensePlate ?? 'Vehículo'} · AutoStory`}</title>
+      </Head>
+
       <AppHeader
         onBack={goBack}
         rightAction={
@@ -415,6 +504,10 @@ export default function VehicleDetailScreen() {
           ) : null}
 
           {activeTab === 'parts' ? <PartsTab vehicleId={vehicle.id} /> : null}
+
+          {activeTab === 'appointments' ? (
+            <AppointmentsList vehicleId={vehicle.id} />
+          ) : null}
         </>
       ) : null}
 
@@ -521,14 +614,53 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  nextCard: {
+    gap: spacing.xs,
+  },
+  nextLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  nextRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+  },
+  nextInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  nextDate: {
+    ...typography.subtitle,
+    color: colors.textPrimary,
+  },
+  nextReason: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  nextEmpty: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  linkTarget: {
+    justifyContent: 'center',
+    minHeight: layout.touchTarget,
+  },
+  link: {
+    color: colors.primary,
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+  },
   quickActions: {
     gap: spacing.sm,
   },
   quickActionsWide: {
     flexDirection: 'row',
   },
-  quickAction: {
-    flex: 1,
+  naturalButton: {
+    alignSelf: 'center',
+    maxWidth: layout.buttonMaxWidth,
   },
   emptyState: {
     gap: spacing.sm,
@@ -538,6 +670,6 @@ const styles = StyleSheet.create({
   },
   latestRowBorder: {
     borderTopColor: colors.borderSubtle,
-    borderTopWidth: 1,
+    borderTopWidth: layout.borderWidth,
   },
 });

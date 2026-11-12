@@ -55,19 +55,21 @@ API REST de AutoStory construida con ExpressJS + TypeScript + PostgreSQL + TypeO
 | `npm run migration:run` | Aplica las migraciones pendientes. |
 | `npm run typecheck` | Verifica tipos sin emitir archivos.    |
 
-## Autenticación temporal
+## Autenticación
 
-Mientras no exista Clerk, todas las rutas protegidas leen la cabecera `x-user-id`. Si falta, la API responde `401`. El middleware está en `src/auth/auth.middleware.ts` y es el único lugar que sabe cómo se autentica.
+Por defecto (`AUTH_MODE=clerk`) todas las rutas protegidas exigen un token de Clerk en `Authorization: Bearer <token>`. Si falta o no es válido, la API responde `401`. El middleware está en `src/auth/auth.middleware.ts` y es el único lugar que sabe cómo se autentica.
+
+Fuera de producción, `AUTH_MODE=dev-header` permite autenticar con la cabecera `x-user-id` (solo para desarrollo y tests). Con `NODE_ENV=production` el servidor se niega a arrancar en ese modo.
 
 Ejemplo:
 
 ```bash
-curl -H "x-user-id: user-1" http://localhost:3000/vehicles
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/vehicles
 ```
 
 ## Endpoints
 
-`GET /health` es pública. El resto de las rutas requiere la cabecera `x-user-id`.
+`GET /health` y `/uploads/*` son públicas. El resto de las rutas requiere autenticación.
 
 | Método | Ruta                                   | Descripción                                                  |
 | ------ | -------------------------------------- | ------------------------------------------------------------ |
@@ -86,7 +88,7 @@ curl -H "x-user-id: user-1" http://localhost:3000/vehicles
 ```bash
 curl -X POST http://localhost:3000/vehicles \
   -H "Content-Type: application/json" \
-  -H "x-user-id: user-1" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "vin": "WVWZZZ6RZMY000001",
     "licensePlate": "BBJJ12",
@@ -107,7 +109,7 @@ Reglas de negocio:
 ### Decodificar un VIN
 
 ```bash
-curl -H "x-user-id: user-1" \
+curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:3000/vehicles/vin/WVWZZZ6RZMY000001/decode
 ```
 
@@ -131,7 +133,7 @@ curl -H "x-user-id: user-1" \
 ```bash
 curl -X POST http://localhost:3000/parts \
   -H "Content-Type: application/json" \
-  -H "x-user-id: user-1" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "vehicleId": "11111111-1111-4111-8111-111111111111",
     "maintenanceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -169,7 +171,7 @@ src/
 ├── db/
 │   └── data-source.ts     # DataSource de TypeORM y migraciones
 ├── seed.ts                # Datos de prueba
-├── auth/                  # Autenticación temporal por x-user-id
+├── auth/                  # Autenticación con Clerk (o dev-header en tests)
 ├── common/                # HttpError, manejo de errores y validación
 ├── config/                # Variables de entorno validadas con zod
 ├── entities/              # Vehicle, Maintenance, Part

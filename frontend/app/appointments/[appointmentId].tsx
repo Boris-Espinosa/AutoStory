@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import Head from 'expo-router/head';
 import { useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ import {
   useCancelAppointment,
   useCompleteAppointment,
 } from '../../src/api/appointments';
-import { ApiError, CURRENT_USER_ID } from '../../src/api/client';
+import { ApiError } from '../../src/api/client';
 import { AppHeader } from '../../src/components/ui/AppHeader';
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
@@ -54,6 +55,7 @@ export default function AppointmentDetailScreen() {
   const flashParam = Array.isArray(params.flash)
     ? params.flash[0]
     : params.flash;
+  const { userId } = useAuth();
 
   const appointmentQuery = useAppointment(appointmentId || null);
   const cancelMutation = useCancelAppointment(appointmentId);
@@ -107,7 +109,7 @@ export default function AppointmentDetailScreen() {
   const createdBy = appointment?.createdBy;
   const createdByLabel = !createdBy
     ? 'Otro usuario'
-    : createdBy.id === CURRENT_USER_ID
+    : createdBy.id === userId
       ? 'Tú'
       : createdBy.name ?? 'Otro usuario';
 

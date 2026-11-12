@@ -181,29 +181,39 @@ El rediseño puede mover rutas y presentación, pero estas firmas y comportamien
 
 ## Lista de verificación (basada en `docs/ui-design.md`)
 
-- [ ] Cada pantalla tiene una sola acción principal y un único botón de color primario visible.
-- [ ] Ninguna tarjeta ni fila de lista contiene botones; son un único objetivo táctil.
-- [ ] Las acciones secundarias y destructivas viven en el menú "⋯" de la pantalla de detalle.
-- [ ] Existe navegación por niveles: secciones globales, ficha del vehículo y pestañas.
-- [ ] En compacto (< 720 px) las secciones usan barra inferior.
-- [ ] En medio y expandido (≥ 720 px) las secciones usan barra lateral izquierda de 220 px con "AutoStory".
-- [ ] La ficha del vehículo vive en `/vehicles/[vehicleId]`.
-- [ ] Las pestañas Resumen, Mantenciones y Repuestos se controlan con `?tab=summary|maintenances|parts` y `summary` es el valor por defecto.
-- [ ] Nuevo vehículo, Registrar mantención, Detalle de mantención y Añadir repuesto son pantallas completas, sin barra de secciones y con encabezado propio.
-- [ ] `/vehicles/[id]/parts` y `/vehicles/[id]/maintenances` redirigen a la ficha con la pestaña correspondiente.
-- [ ] Mis vehículos usa rejilla de 1, 2 o 3 columnas con contenedor máximo de 1100 px.
-- [ ] La acción "Registrar vehículo" está arriba a la derecha en medio/expandido y como Fab "+" en compacto.
-- [ ] La tarjeta de vehículo muestra foto 72×72, patente en negrita, "Marca Modelo · Año", kilometraje e insignia "Invitado"; no muestra VIN ni botones.
-- [ ] La ficha del vehículo tiene máximo 900 px, encabezado con volver, patente y menú "⋯" solo para el dueño con "Eliminar vehículo".
-- [ ] La ficha tiene hero con foto, marca, modelo, año, kilometraje, VIN abreviado e insignia "Invitado".
-- [ ] Resumen muestra "Gasto total" con desglose, estadísticas, acciones rápidas secundarias y las últimas 3 mantenciones, sin Fab.
-- [ ] Mantenciones y Repuestos usan filas de lista y Fab "+" como acción principal, extendido con etiqueta en expandido.
-- [ ] Mantenciones y Repuestos muestran un EmptyState con botón primario cuando no hay datos.
-- [ ] Los formularios tienen ancho máximo 640, secciones con título y FormFooter fijo con Cancelar (1/3) y Guardar (2/3).
-- [ ] Los formularios piden confirmación al descartar cambios.
-- [ ] Cuenta muestra perfil mínimo, versión de la app y "Cerrar sesión" deshabilitado hasta integrar Clerk.
-- [ ] La paleta se conserva sin cambiar valores y está centralizada en `src/theme.ts`.
-- [ ] Las pantallas usan tokens de `src/theme.ts` y no colores ni tamaños sueltos.
-- [ ] Todos los iconos son Ionicons; no quedan emojis ni glifos de texto usados como iconos.
-- [ ] Toda área táctil mide al menos 44×44 px.
-- [ ] Iconos y botones tienen `accessibilityLabel`.
+Verificación final del rediseño. El resto del documento queda como registro histórico.
+
+- [x] Cada pantalla tiene una sola acción principal y un único botón de color primario visible.
+- [x] Ninguna tarjeta ni fila de lista contiene botones; son un único objetivo táctil.
+- [x] Las acciones destructivas viven en el menú "⋯" de la pantalla de detalle.
+- [x] Existe navegación por niveles: secciones globales, ficha del vehículo y pestañas.
+- [x] En compacto (< 720 px) las secciones usan barra inferior.
+- [x] En medio y expandido (≥ 720 px) las secciones usan barra lateral izquierda de 220 px con "AutoStory".
+- [x] La ficha del vehículo vive en `/vehicles/[vehicleId]`.
+- [x] Las pestañas Resumen, Mantenciones y Repuestos se controlan con `?tab=summary|maintenances|parts` y `summary` es el valor por defecto.
+- [x] Nuevo vehículo, Registrar mantención, Detalle de mantención y Añadir repuesto son pantallas completas, sin barra de secciones y con encabezado propio.
+- [x] `/vehicles/[id]/parts` y `/vehicles/[id]/maintenances` redirigen a la ficha con la pestaña correspondiente.
+- [x] Mis vehículos usa rejilla de 1, 2 o 3 columnas con contenedor máximo de 1100 px.
+- [x] La acción "Registrar vehículo" está arriba a la derecha en medio/expandido y como Fab "+" en compacto.
+- [x] La tarjeta de vehículo muestra foto 72×72, patente en negrita, "Marca Modelo · Año", kilometraje e insignia "Invitado"; no muestra VIN ni botones.
+- [x] La ficha del vehículo tiene máximo 900 px, encabezado con volver, patente y menú "⋯" solo para el dueño con "Eliminar vehículo".
+- [x] La ficha tiene hero con foto, marca, modelo, año, kilometraje, VIN abreviado e insignia "Invitado".
+- [x] Resumen muestra "Gasto total" con desglose, estadísticas, acciones rápidas secundarias y las últimas 3 mantenciones, sin Fab.
+- [x] Mantenciones y Repuestos usan filas de lista y Fab "+" como acción principal, extendido con etiqueta en expandido.
+- [x] Mantenciones y Repuestos muestran un EmptyState con botón primario cuando no hay datos.
+- [x] Los formularios tienen ancho máximo 640, secciones con título y FormFooter fijo solo en compacto; en medio y expandido va al final del formulario con botones de ancho natural.
+- [x] Los formularios piden confirmación al descartar cambios.
+- [x] Cuenta muestra perfil mínimo, versión de la app y "Cerrar sesión" deshabilitado hasta integrar Clerk.
+- [x] La paleta se conserva sin cambiar valores y está centralizada en `src/theme.ts`.
+- [x] Las pantallas usan tokens de `src/theme.ts` y no colores ni tamaños sueltos.
+- [x] Todos los iconos son Ionicons; no quedan emojis ni glifos de texto usados como iconos.
+- [x] Toda área táctil mide al menos 44×44 px.
+- [x] Iconos y botones tienen `accessibilityLabel`.
+
+### Explicaciones de lo que no aplica literalmente
+
+- **Acciones secundarias en el menú "⋯"**: solo las destructivas (eliminar vehículo y mantención) y "Editar" viven ahí. Las secundarias que el diseño pide visibles (Cancelar en formularios, acciones rápidas del Resumen, "Ver todas" y "Cargar más") se mantienen en pantalla.
+- **FormFooter fijo con Cancelar (1/3) y Guardar (2/3)**: quedó obsoleto. La regla vigente es fijo solo en compacto; en medio y expandido va al final del formulario con botones de ancho natural.
+- **Áreas táctiles**: las opciones del selector y los ítems del menú "⋯" no fijan `minHeight` explícito, pero su padding vertical más el texto superan 44 px; el resto de los controles usa `layout.touchTarget` o `layout.inputMinHeight`.
+- **`accessibilityLabel` en iconos**: los iconos decorativos dentro de un botón, tarjeta o pestaña no llevan etiqueta propia para no duplicar el anuncio del control que los contiene. `IconButton` exige `accessibilityLabel` por tipo y el resto de los controles interactivos lo define.
+- **`app/dev-ui.tsx`**: la pantalla temporal de componentes ya no existe; no forma parte de las rutas finales.

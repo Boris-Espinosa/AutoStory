@@ -1,7 +1,7 @@
+import { useAuth } from '@clerk/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { CURRENT_USER_ID } from '../../api/client';
 import { useMaintenanceList } from '../../api/maintenances';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +16,7 @@ import { formatChileanAmount, isoDateToDisplay } from '../../utils/format';
 export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
   const listQuery = useMaintenanceList(vehicleId || null);
   const { size } = useBreakpoint();
+  const { userId } = useAuth();
 
   const items = listQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const firstPage = listQuery.data?.pages[0];
@@ -80,7 +81,7 @@ export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
             {items.map((maintenance, index) => {
               const registeredBy = maintenance.registeredBy;
               const registeredByOther =
-                registeredBy !== null && registeredBy.id !== CURRENT_USER_ID;
+                registeredBy !== null && registeredBy.id !== userId;
 
               return (
                 <View

@@ -1,7 +1,30 @@
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
-/** Usuario temporal mientras no existe autenticación real. */
-export const CURRENT_USER_ID = 'user-1';
+/** Opciones del proveedor de token de sesión. */
+export interface TokenRequestOptions {
+  skipCache?: boolean;
+}
+
+/**
+ * Devuelve el token de sesión de Clerk, o null si no hay sesión activa.
+ * Lo registra un componente raíz con `useAuth().getToken`.
+ */
+export type TokenProvider = (options?: TokenRequestOptions) => Promise<string | null>;
+
+let tokenProvider: TokenProvider | null = null;
+
+export function setTokenProvider(provider: TokenProvider): void {
+  tokenProvider = provider;
+}
+
+/** Cierra la sesión localmente cuando el backend rechaza el token dos veces. */
+type SessionExpiredHandler = () => Promise<void> | void;
+
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+
+export function setSessionExpiredHandler(handler: SessionExpiredHandler): void {
+  sessionExpiredHandler = handler;
+}
 
 export interface ApiErrorDetail {
   field: string;
@@ -45,6 +68,25 @@ function isApiErrorDetail(value: unknown): value is ApiErrorDetail {
   );
 }
 
+async function requestToken(options: TokenRequestOptions = {}): Promise<string | null> {
+  return tokenProvider ? tokenProvider(options) : null;
+}
+
+async function fetchApi(
+  path: string,
+  init: RequestInit,
+  headers: Record<string, string>,
+): Promise<Response> {
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError(
+      'No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.',
+      0,
+    );
+  }
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(init.headers as Record<string, string> | undefined),
@@ -55,20 +97,28 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers['Content-Type'] = 'application/json';
   }
 
-  // Solo en desarrollo: usuario temporal mientras no existe autenticación real.
-  if (process.env.NODE_ENV !== 'production') {
-    headers['x-user-id'] = CURRENT_USER_ID;
+  // El token de sesión dura poco: se pide uno nuevo en cada petición.
+  const token = await requestToken();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  let response: Response;
+  let response = await fetchApi(path, init, headers);
 
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  } catch {
-    throw new ApiError(
-      'No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.',
-      0,
-    );
+  // Token vencido: se pide otro saltando la caché y se reintenta una sola vez.
+  if (response.status === 401 && token) {
+    const freshToken = await requestToken({ skipCache: true });
+
+    if (freshToken) {
+      headers.Authorization = `Bearer ${freshToken}`;
+      response = await fetchApi(path, init, headers);
+    }
+
+    if (response.status === 401) {
+      await sessionExpiredHandler?.();
+      throw new ApiError('Tu sesión expiró. Vuelve a iniciar sesión.', 401);
+    }
   }
 
   const body = parseJson(await response.text());

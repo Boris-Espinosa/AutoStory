@@ -11,7 +11,10 @@ let auth: RequestHandler;
 beforeAll(async () => {
   dataSource = createTestDataSource();
   await dataSource.initialize();
-  auth = createAuthMiddleware(dataSource.getRepository(User));
+  auth = createAuthMiddleware({
+    users: dataSource.getRepository(User),
+    userSync: { ensureLocalUser: jest.fn() },
+  });
 });
 
 afterAll(async () => {

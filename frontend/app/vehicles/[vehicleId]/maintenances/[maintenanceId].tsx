@@ -1,8 +1,9 @@
+import { useAuth } from '@clerk/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { ApiError, CURRENT_USER_ID } from '../../../../src/api/client';
+import { ApiError } from '../../../../src/api/client';
 import {
   useDeleteMaintenance,
   useMaintenance,
@@ -40,6 +41,7 @@ export default function MaintenanceDetailScreen() {
     : params.maintenanceId ?? '';
   const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab = tabParam === 'summary' ? 'summary' : 'maintenances';
+  const { userId } = useAuth();
 
   const maintenanceQuery = useMaintenance(
     vehicleId || null,
@@ -69,7 +71,7 @@ export default function MaintenanceDetailScreen() {
   const canModify =
     Boolean(maintenance) &&
     (vehicle?.role === 'OWNER' ||
-      maintenance?.registeredBy?.id === CURRENT_USER_ID);
+      maintenance?.registeredBy?.id === userId);
   const maintenanceWorkshop = maintenance?.workshop ?? null;
   const workshop = maintenanceWorkshop
     ? workshopsQuery.data?.find((item) => item.id === maintenanceWorkshop.id)
@@ -78,7 +80,7 @@ export default function MaintenanceDetailScreen() {
   const registeredBy = maintenance?.registeredBy;
   const registeredByLabel = !registeredBy
     ? 'Otro usuario'
-    : registeredBy.id === CURRENT_USER_ID
+    : registeredBy.id === userId
       ? 'Tú'
       : registeredBy.name ?? 'Otro usuario';
 

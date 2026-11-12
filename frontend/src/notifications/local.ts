@@ -5,10 +5,15 @@ import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { apiRequest } from '../api/client';
+import {
+  ANDROID_CHANNEL_ID,
+  canUseLocalReminders,
+  logNotificationError,
+  setupNotifications,
+} from './setup';
 
 const STORAGE_KEY = 'localRemindersEnabled';
 const IDENTIFIER_PREFIX = 'reminder:';
-const ANDROID_CHANNEL_ID = 'citas';
 const MAX_LOCAL_REMINDERS = 40;
 
 export interface PendingReminder {
@@ -19,45 +24,9 @@ export interface PendingReminder {
   body: string;
 }
 
-/** Pide el permiso del sistema; solo se llama al activar el interruptor. */
-export async function ensurePermission(): Promise<boolean> {
-  const settings = await Notifications.requestPermissionsAsync();
-  return settings.granted;
-}
-
-export async function isPermissionGranted(): Promise<boolean> {
-  return (await Notifications.getPermissionsAsync()).granted;
-}
-
-/** Handler de primer plano y, en Android, el canal de los avisos de citas. */
-export function configure(): void {
-  if (Platform.OS === 'web') {
-    return;
-  }
-
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-
-  if (Platform.OS === 'android') {
-    void Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-      name: 'Citas',
-      importance: Notifications.AndroidImportance.HIGH,
-    });
-  }
-}
-
+/** Indica si el usuario activó los avisos locales. */
 export async function isLocalRemindersEnabled(): Promise<boolean> {
   return (await AsyncStorage.getItem(STORAGE_KEY)) === 'true';
-}
-
-export async function setLocalRemindersEnabled(enabled: boolean): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, String(enabled));
 }
 
 async function cancelAllLocalReminders(): Promise<void> {
@@ -74,11 +43,15 @@ async function cancelAllLocalReminders(): Promise<void> {
 
 /** Borra los avisos programados por esta app; se usa al desactivar el interruptor. */
 export async function clearLocalReminders(): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (!canUseLocalReminders) {
     return;
   }
 
-  await cancelAllLocalReminders();
+  try {
+    await cancelAllLocalReminders();
+  } catch {
+    logNotificationError('No se pudieron borrar los avisos programados');
+  }
 }
 
 let syncPromise: Promise<void> | null = null;
@@ -96,7 +69,7 @@ export function syncLocalReminders(): Promise<void> {
 }
 
 async function doSyncLocalReminders(): Promise<void> {
-  if (Platform.OS === 'web' || !(await isLocalRemindersEnabled())) {
+  if (!canUseLocalReminders || !(await isLocalRemindersEnabled())) {
     return;
   }
 
@@ -104,32 +77,36 @@ async function doSyncLocalReminders(): Promise<void> {
     `/me/reminders?limit=${MAX_LOCAL_REMINDERS}`,
   );
 
-  await cancelAllLocalReminders();
+  try {
+    await cancelAllLocalReminders();
 
-  const now = Date.now();
+    const now = Date.now();
 
-  for (const reminder of reminders.slice(0, MAX_LOCAL_REMINDERS)) {
-    const date = new Date(reminder.remindAt);
+    for (const reminder of reminders.slice(0, MAX_LOCAL_REMINDERS)) {
+      const date = new Date(reminder.remindAt);
 
-    if (date.getTime() <= now) {
-      continue;
+      if (date.getTime() <= now) {
+        continue;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        identifier: `${IDENTIFIER_PREFIX}${reminder.reminderId}`,
+        content: {
+          title: reminder.title,
+          body: reminder.body,
+          data: { appointmentId: reminder.appointmentId },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date,
+          ...(Platform.OS === 'android'
+            ? { channelId: ANDROID_CHANNEL_ID }
+            : {}),
+        },
+      });
     }
-
-    await Notifications.scheduleNotificationAsync({
-      identifier: `${IDENTIFIER_PREFIX}${reminder.reminderId}`,
-      content: {
-        title: reminder.title,
-        body: reminder.body,
-        data: { appointmentId: reminder.appointmentId },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date,
-        ...(Platform.OS === 'android'
-          ? { channelId: ANDROID_CHANNEL_ID }
-          : {}),
-      },
-    });
+  } catch {
+    logNotificationError('No se pudieron programar los avisos locales');
   }
 }
 
@@ -150,21 +127,30 @@ function openAppointment(
  */
 export function useLocalReminders(): void {
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (!canUseLocalReminders) {
       return;
     }
 
-    configure();
+    setupNotifications();
 
-    const lastResponse = Notifications.getLastNotificationResponse();
-    openAppointment(lastResponse);
-    Notifications.clearLastNotificationResponse();
+    try {
+      openAppointment(Notifications.getLastNotificationResponse());
+      Notifications.clearLastNotificationResponse();
+    } catch {
+      logNotificationError('No se pudo leer el último aviso');
+    }
 
-    const responseSubscription =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        openAppointment(response);
-        Notifications.clearLastNotificationResponse();
-      });
+    let responseSubscription: Notifications.EventSubscription | undefined;
+
+    try {
+      responseSubscription =
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          openAppointment(response);
+          Notifications.clearLastNotificationResponse();
+        });
+    } catch {
+      logNotificationError('No se pudo escuchar los avisos');
+    }
 
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -175,7 +161,7 @@ export function useLocalReminders(): void {
     void syncLocalReminders().catch(() => undefined);
 
     return () => {
-      responseSubscription.remove();
+      responseSubscription?.remove();
       appStateSubscription.remove();
     };
   }, []);

@@ -1,5 +1,6 @@
 import { createClerkClient } from '@clerk/backend';
 import { DataSource } from 'typeorm';
+import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
 import { removeVehiclePhoto } from '../vehicles/photo-upload';
 
@@ -124,7 +125,7 @@ export class AccountDeletionService {
       try {
         await removeVehiclePhoto(photoUrl);
       } catch {
-        console.warn('No se pudo borrar una foto de un vehículo eliminado.');
+        warn('No se pudo borrar una foto de un vehículo eliminado.');
       }
     }
 
@@ -137,7 +138,7 @@ export class AccountDeletionService {
       return true;
     } catch {
       // Los datos locales ya no existen; sin ids ni datos personales.
-      console.error(
+      logError(
         'No se pudo eliminar la cuenta en Clerk; la eliminación local ya se completó.',
       );
       return false;

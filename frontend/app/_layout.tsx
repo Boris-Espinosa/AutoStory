@@ -1,16 +1,25 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, usePathname } from 'expo-router';
+import { router, Stack, useGlobalSearchParams, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SESSION_REJECTED_MESSAGE, setSessionRejectedHandler } from '../src/api/client';
 import { Button } from '../src/components/ui/Button';
+import { MessageBanner } from '../src/components/MessageBanner';
 import { AuthBridge } from '../src/features/auth/AuthBridge';
 import { useLocalReminders } from '../src/notifications/local';
 import { colors, layout, spacing, typography } from '../src/theme';
+import { safeRedirect } from '../src/utils/safeRedirect';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +32,9 @@ const queryClient = new QueryClient({
 
 /** Tiempo máximo de espera mientras Clerk carga la sesión. */
 const AUTH_LOAD_TIMEOUT_MS = 10_000;
+
+/** Rutas que se abandonan en cuanto hay sesión. */
+const AUTH_ROUTES = ['/sign-in', '/sso-callback'];
 
 export default function RootLayout() {
   const [attempt, setAttempt] = useState(0);
@@ -47,9 +59,25 @@ export default function RootLayout() {
 }
 
 function AppShell({ onRetry }: { onRetry: () => void }) {
-  const { isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams<{ redirect?: string }>();
   const [timedOut, setTimedOut] = useState(false);
   useLocalReminders();
+
+  // Navegación posterior al inicio de sesión: vive aquí para que funcione
+  // aunque sign-in se haya desmontado (p. ej. al volver por /sso-callback).
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !AUTH_ROUTES.includes(pathname)) {
+      return;
+    }
+
+    const target = safeRedirect(
+      typeof params.redirect === 'string' ? params.redirect : undefined,
+    );
+
+    router.replace(target);
+  }, [isLoaded, isSignedIn, pathname, params.redirect]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -73,6 +101,8 @@ function AppShell({ onRetry }: { onRetry: () => void }) {
         ) : (
           <AuthLoading />
         )}
+
+        <SessionRejectedBanner />
       </QueryClientProvider>
     </SafeAreaProvider>
   );
@@ -104,6 +134,32 @@ function RootNavigator() {
         <Stack.Screen name="account/delete" />
       </Stack.Protected>
     </Stack>
+  );
+}
+
+/** Aviso persistente cuando el backend rechaza la sesión de Clerk. */
+function SessionRejectedBanner() {
+  const [visible, setVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    setSessionRejectedHandler(() => setVisible(true));
+  }, []);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={[styles.sessionRejected, { top: insets.top + spacing.sm }]}>
+      <Pressable
+        accessibilityLabel="Cerrar aviso"
+        accessibilityRole="button"
+        onPress={() => setVisible(false)}
+      >
+        <MessageBanner message={SESSION_REJECTED_MESSAGE} tone="error" />
+      </Pressable>
+    </View>
   );
 }
 
@@ -167,5 +223,11 @@ const styles = StyleSheet.create({
   action: {
     marginTop: spacing.sm,
     minWidth: layout.buttonMinWidth,
+  },
+  sessionRejected: {
+    left: spacing.lg,
+    position: 'absolute',
+    right: spacing.lg,
+    zIndex: 2,
   },
 });

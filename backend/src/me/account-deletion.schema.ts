@@ -7,5 +7,3 @@ export const deleteAccountSchema = z
     }),
   })
   .strip();
-
-export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;

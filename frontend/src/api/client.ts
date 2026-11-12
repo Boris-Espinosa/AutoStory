@@ -1,5 +1,8 @@
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
+export const SESSION_REJECTED_MESSAGE =
+  'El servidor no aceptó tu sesión. Inténtalo de nuevo más tarde.';
+
 /** Opciones del proveedor de token de sesión. */
 export interface TokenRequestOptions {
   skipCache?: boolean;
@@ -17,13 +20,13 @@ export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider;
 }
 
-/** Cierra la sesión localmente cuando el backend rechaza el token dos veces. */
-type SessionExpiredHandler = () => Promise<void> | void;
+/** Avisa que el servidor rechazó incluso un token recién emitido. */
+type SessionRejectedHandler = () => void;
 
-let sessionExpiredHandler: SessionExpiredHandler | null = null;
+let sessionRejectedHandler: SessionRejectedHandler | null = null;
 
-export function setSessionExpiredHandler(handler: SessionExpiredHandler): void {
-  sessionExpiredHandler = handler;
+export function setSessionRejectedHandler(handler: SessionRejectedHandler): void {
+  sessionRejectedHandler = handler;
 }
 
 export interface ApiErrorDetail {
@@ -80,6 +83,10 @@ async function fetchApi(
   try {
     return await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   } catch {
+    if (__DEV__) {
+      console.warn('[auth] api', (init.method ?? 'GET').toUpperCase(), path, 'sin conexión');
+    }
+
     throw new ApiError(
       'No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.',
       0,
@@ -116,8 +123,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     }
 
     if (response.status === 401) {
-      await sessionExpiredHandler?.();
-      throw new ApiError('Tu sesión expiró. Vuelve a iniciar sesión.', 401);
+      // Un token recién emitido también fue rechazado: no se cierra la sesión
+      // (eso provocaba un bucle de inicio de sesión), solo se avisa una vez.
+      sessionRejectedHandler?.();
+      throw new ApiError(SESSION_REJECTED_MESSAGE, 401);
     }
   }
 

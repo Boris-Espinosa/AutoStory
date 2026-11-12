@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { DeepPartial } from 'typeorm';
+import { error as logError, info } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { Maintenance } from './entities/Maintenance';
@@ -183,7 +184,7 @@ const seedParts: DeepPartial<Part>[] = [
 
 async function seed(): Promise<void> {
   if (env.nodeEnv === 'production') {
-    console.error('El seed no se ejecuta en producción.');
+    logError('El seed no se ejecuta en producción.');
     process.exit(1);
   }
 
@@ -197,23 +198,26 @@ async function seed(): Promise<void> {
     await AppDataSource.getRepository(Maintenance).save(seedMaintenances);
     await AppDataSource.getRepository(Part).save(seedParts);
 
-    console.log('Seed completado.');
-    console.log('Usuarios: user-1, user-2');
-    console.log(
+    info('Seed completado.');
+    info('Usuarios: user-1, user-2');
+    info(
       'VEHICLE_B y VEHICLE_C comparten patente y VIN con dueños distintos; VEHICLE_E no tiene VIN.',
     );
-    console.log(`Vehículos: ${seedVehicles.length}`);
-    console.log(
+    info(`Vehículos: ${seedVehicles.length}`);
+    info(
       `Talleres: ${seedWorkshops.length} (mismo nombre en user-1 y user-2)`,
     );
-    console.log(`Mantenciones: ${seedMaintenances.length}`);
-    console.log(`Repuestos: ${seedParts.length}`);
+    info(`Mantenciones: ${seedMaintenances.length}`);
+    info(`Repuestos: ${seedParts.length}`);
   } finally {
     await AppDataSource.destroy();
   }
 }
 
 seed().catch((error) => {
-  console.error('No se pudo ejecutar el seed.', error);
+  logError(
+    'No se pudo ejecutar el seed.',
+    error instanceof Error ? error.name : undefined,
+  );
   process.exit(1);
 });

@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { Clock } from '../common/clock';
 import { asyncHandler } from '../common/async-handler';
+import { error as logError } from '../common/logger';
 import {
   ValidationError,
   formatIssues,
@@ -261,7 +262,10 @@ export function createVehiclesRouter(
       try {
         await removeVehiclePhoto(photoUrl);
       } catch (error) {
-        console.error('No se pudo borrar la foto del vehículo:', error);
+        logError(
+          'No se pudo borrar la foto del vehículo.',
+          error instanceof Error ? error.name : undefined,
+        );
       }
 
       res.status(204).end();

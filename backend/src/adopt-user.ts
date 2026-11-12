@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { error as logError, info } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { adoptUser } from './users/user-adoption.service';
@@ -27,7 +28,7 @@ function readArgs(): { fromUserId: string; toClerkUserId: string; dryRun: boolea
 
 async function main(): Promise<void> {
   if (env.nodeEnv === 'production') {
-    console.error('dev:adopt no se ejecuta en producción.');
+    logError('dev:adopt no se ejecuta en producción.');
     process.exitCode = 1;
     return;
   }
@@ -35,7 +36,7 @@ async function main(): Promise<void> {
   const args = readArgs();
 
   if (!args) {
-    console.error(USAGE);
+    logError(USAGE);
     process.exitCode = 1;
     return;
   }
@@ -51,25 +52,27 @@ async function main(): Promise<void> {
     );
 
     if (result.dryRun) {
-      console.log(
+      info(
         `Simulación: ${args.fromUserId} -> ${args.toClerkUserId} (sin cambios).`,
       );
     } else {
-      console.log(
+      info(
         `Usuario ${args.fromUserId} adoptado como ${args.toClerkUserId}.`,
       );
     }
 
     for (const [table, count] of Object.entries(result.counts)) {
-      console.log(`  ${table}: ${count}`);
+      info(`  ${table}: ${count}`);
     }
-    console.log(`Total de filas: ${result.movedRows}`);
+    info(`Total de filas: ${result.movedRows}`);
   } finally {
     await AppDataSource.destroy();
   }
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : 'No se pudo adoptar el usuario.');
+  logError(
+    error instanceof Error ? error.message : 'No se pudo adoptar el usuario.',
+  );
   process.exitCode = 1;
 });

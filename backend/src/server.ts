@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { createApp } from './app';
+import { error as logError, info } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { startReminderWorker } from './notifications/reminder-worker';
@@ -11,7 +12,7 @@ async function bootstrap(): Promise<void> {
   const stopReminderWorker = startReminderWorker(AppDataSource);
 
   const server = app.listen(env.port, () => {
-    console.log(`AutoStory API escuchando en http://localhost:${env.port}`);
+    info(`AutoStory API escuchando en http://localhost:${env.port}`);
   });
 
   const shutdown = (): void => {
@@ -26,6 +27,9 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error) => {
-  console.error('No se pudo iniciar la API.', error);
+  logError(
+    'No se pudo iniciar la API.',
+    error instanceof Error ? error.name : undefined,
+  );
   process.exit(1);
 });

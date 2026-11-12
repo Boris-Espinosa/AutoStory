@@ -2,6 +2,7 @@ import { getAuth } from '@clerk/express';
 import { RequestHandler, Response } from 'express';
 import { Repository } from 'typeorm';
 import { asyncHandler } from '../common/async-handler';
+import { error as logError } from '../common/logger';
 import { env } from '../config/env';
 import { User } from '../entities/User';
 import { UserSyncService } from '../users/user-sync.service';
@@ -59,7 +60,7 @@ export function createAuthMiddleware({
     try {
       await userSync.ensureLocalUser(userId);
     } catch {
-      console.error('No se pudo asegurar el usuario local de Clerk.');
+      logError('No se pudo asegurar el usuario local de Clerk.');
       res.status(503).json({ message: 'Servicio no disponible' });
       return;
     }

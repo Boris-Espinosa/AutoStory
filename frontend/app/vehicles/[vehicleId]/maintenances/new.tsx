@@ -178,7 +178,6 @@ export default function NewMaintenanceScreen() {
 
   const serviceMileage = watch('serviceMileage');
   const laborCost = watch('laborCost');
-  const workshopId = watch('workshopId');
 
   const maintenance = maintenanceQuery.data;
 

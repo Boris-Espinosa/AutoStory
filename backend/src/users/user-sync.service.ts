@@ -1,6 +1,7 @@
 import { createClerkClient } from '@clerk/backend';
 import { Repository } from 'typeorm';
 import { Clock } from '../common/clock';
+import { warn } from '../common/logger';
 import { env } from '../config/env';
 import { User } from '../entities/User';
 
@@ -141,7 +142,7 @@ export class UserSyncService {
         this.timeoutMs,
       );
     } catch {
-      console.warn(
+      warn(
         'No se pudo sincronizar el perfil de Clerk; se continúa con el usuario mínimo.',
       );
 
@@ -197,7 +198,7 @@ export class UserSyncService {
       }
 
       // El correo ya pertenece a otro usuario local: se guarda sin correo.
-      console.warn(
+      warn(
         'El correo del perfil ya pertenece a otro usuario; se guarda sin correo.',
       );
       await this.runUpsert(clerkUserId, { ...data, email: null }, syncedAt);

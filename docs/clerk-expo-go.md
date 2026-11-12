@@ -1,7 +1,36 @@
-# Inicio de sesión con Clerk en Expo Go
+# Inicio de sesión con Clerk en un development build
 
-Este documento explica cómo probar el inicio de sesión social desde Expo Go y qué
-configurar en el panel de Clerk. La app usa `@clerk/expo` con `useSSO().startSSOFlow`.
+Este documento explica cómo probar el inicio de sesión social con Clerk fuera de
+Expo Go. La app usa `@clerk/expo` con `useSSO().startSSOFlow` y
+`expo-dev-client`.
+
+## Por qué ya no se usa Expo Go para iniciar sesión
+
+En Expo Go (Android), tras elegir la cuenta de Google, el navegador se queda en
+la pantalla "Estás volviendo a acceder a Clerk" y la app nunca recupera el
+control. Expo Go solo puede registrar el esquema `exp`, así que la redirección
+sale como `exp://<IP>:<puerto>/--/sso-callback` y el retorno al flujo de la app
+no es fiable.
+
+Un **development build** es una app nativa propia que:
+
+- Registra el esquema `autostory`, por lo que la redirección real es
+  `autostory://sso-callback`.
+- Incluye `expo-dev-client`, que conecta la app con el servidor de Metro igual
+  que Expo Go.
+- Incluye los módulos nativos de Clerk y permite probar también Apple (en iOS).
+
+Por eso el inicio de sesión se prueba con el development build. Expo Go queda
+solo para pantallas que no requieren iniciar sesión.
+
+## Configuración del proyecto
+
+- `frontend/app.json` define `"scheme": "autostory"`, el package de Android
+  `com.autostory.app` y el bundle ID de iOS `com.autostory.app`.
+- El plugin `@clerk/expo` está en `plugins`; registra el callback nativo de Clerk
+  en Android y el entitlement de Apple en iOS.
+- `frontend/eas.json` define el perfil `development` con `developmentClient:
+  true`, `distribution: "internal"` y APK para Android.
 
 ## URL de redirección
 
@@ -11,85 +40,83 @@ El código genera la URL con:
 AuthSession.makeRedirectUri({ scheme: 'autostory', path: 'sso-callback' })
 ```
 
-El resultado depende del entorno de ejecución:
-
 | Entorno | URL generada |
 | --- | --- |
-| Expo Go (Android/iOS) | `exp://<IP-del-equipo>:<puerto>/--/sso-callback` |
 | Development build / app instalada | `autostory://sso-callback` |
 | Web local | `http://localhost:8081/sso-callback` |
+| Expo Go (solo pantallas sin login) | `exp://<IP-del-equipo>:<puerto>/--/sso-callback` |
 
-En Expo Go el esquema `autostory` se ignora a propósito: Expo Go solo puede
-registrar el esquema `exp`. Por eso la URL real cambia con la IP y el puerto del
-servidor de Metro.
-
-Con el servidor actual en la red Wi-Fi `192.168.1.20` y el puerto por defecto
-`8081`, la URL es:
+En un build nativo la URL es siempre `autostory://sso-callback`. La app imprime
+la URL exacta y el entorno al abrir la pantalla de inicio de sesión, solo en
+desarrollo:
 
 ```
-exp://192.168.1.20:8081/--/sso-callback
+[auth] redirectUrl: autostory://sso-callback entorno: bare
 ```
-
-La app imprime la URL exacta y el entorno al abrir la pantalla de inicio de sesión,
-solo en desarrollo:
-
-```
-[sign-in] redirectUrl: exp://192.168.1.20:8081/--/sso-callback entorno: storeClient
-```
-
-Usa ese valor tal cual. Si cambia la IP, el puerto o el modo de conexión (LAN,
-túnel o localhost), cambia la URL.
 
 ## Configuración en el panel de Clerk
 
 1. Entra al panel de Clerk de la instancia de desarrollo.
 2. Abre **Native applications** y habilita la Native API.
-3. Registra la aplicación Android con su package name (y la de iOS con Bundle ID
-   y App ID Prefix si corresponde).
+3. Registra la aplicación Android con el package name `com.autostory.app` (y la
+   de iOS con el Bundle ID `com.autostory.app` y el App ID Prefix si
+   corresponde).
 4. En **Allowlist for mobile SSO redirect**, agrega la URL de redirección:
-   - Expo Go: `exp://192.168.1.20:8081/--/sso-callback`
    - Development build: `autostory://sso-callback`
    - Producción: `<esquema>://sso-callback` con el esquema final de la app.
-5. Para el flujo web, agrega también el origen y la ruta en **Redirect URLs** de la
-   instancia (`http://localhost:8081/sso-callback` en desarrollo y el dominio de
-   producción cuando exista).
+5. Para el flujo web, agrega también el origen y la ruta en **Redirect URLs** de
+   la instancia (`http://localhost:8081/sso-callback` en desarrollo y el dominio
+   de producción cuando exista).
 
 Sin la URL exacta en la lista permitida, Clerk no completa el flujo y el navegador
 termina en un error de conexión.
 
-## Limitación de Apple en Expo Go
+## Crear el development build con EAS
 
-Apple no está disponible en Expo Go: el inicio de sesión con Apple requiere un
-development build (y, en iOS, la configuración de Apple en Clerk). Por eso el botón
-"Continuar con Apple" sigue visible, pero al pulsarlo en Expo Go muestra:
+No hace falta Android Studio ni un emulador local. EAS compila en la nube y
+entrega un APK instalable.
 
-> Apple no está disponible en Expo Go. Usa Google o una versión instalada de la app
-
-En Expo Go solo se prueba Google.
-
-## Crear un development build
-
-Con Android Studio y un emulador o dispositivo conectado:
+Primero inicia sesión en EAS (una sola vez por equipo):
 
 ```bash
 cd frontend
-npx expo run:android
+npx eas-cli@latest login
 ```
 
-Con EAS (sin Android Studio local):
+Lanza el build de Android con el perfil `development`:
 
 ```bash
-cd frontend
 npx eas-cli@latest build --profile development --platform android
 ```
 
-Luego instala el build en el dispositivo y arranca el servidor para el cliente de
-desarrollo:
+La primera vez EAS pide crear o vincular el proyecto y escribe el `projectId` en
+`app.json`. Al terminar, la consola muestra una URL y un QR para descargar el
+APK.
+
+## Instalar el APK en el celular
+
+1. Abre la URL del build en el celular o escanea el QR que muestra EAS.
+2. Descarga el archivo `.apk`.
+3. Si Android lo pide, permite instalar apps de origen desconocido para el
+   navegador o el explorador de archivos.
+4. Abre la app **AutoStory** instalada. Si el APK se descargó en el PC, también
+   puedes instalarlo por USB con `adb install <archivo>.apk`; no necesitas
+   Android Studio.
+
+## Arrancar el servidor de desarrollo
+
+Con el APK instalado, arranca Metro en modo development build:
 
 ```bash
+cd frontend
 npx expo start --dev-client
 ```
 
-En un development build la redirección pasa a ser `autostory://sso-callback`
-(definida por `expo.scheme` en `frontend/app.json`), así que esa URL también debe
-estar en la lista permitida de Clerk.
+Abre la app instalada y conéctala al servidor con el QR o la URL que muestra la
+consola. En el celular y el PC deben estar en la misma red Wi-Fi (o usa
+`--tunnel` si la red lo bloquea).
+
+## Apple
+
+Apple no está disponible en Expo Go: requiere un development build y, en iOS, la
+configuración de Apple en Clerk. En Expo Go solo se prueba Google.

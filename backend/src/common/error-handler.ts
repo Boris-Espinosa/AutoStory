@@ -1,6 +1,7 @@
 import { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { HttpError } from './http-error';
+import { error as logError } from './logger';
 import { ValidationError, formatIssues } from './validation-pipe';
 
 export const notFoundHandler: RequestHandler = (_req, res) => {
@@ -29,6 +30,9 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
-  console.error('Error no controlado:', error);
+  logError(
+    'Error no controlado.',
+    error instanceof Error ? error.name : undefined,
+  );
   res.status(500).json({ message: 'Ocurrió un error inesperado en el servidor.' });
 };

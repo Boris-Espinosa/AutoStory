@@ -9,6 +9,7 @@ import {
   Not,
 } from 'typeorm';
 import { Clock, systemClock } from '../common/clock';
+import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
 import { Appointment, AppointmentStatus } from '../entities/Appointment';
 import { AppointmentReminder } from '../entities/AppointmentReminder';
@@ -104,11 +105,12 @@ async function registerFailure(
   const attempt = (consecutiveFailures.get(reminderId) ?? 0) + 1;
 
   // Solo el id y el intento: sin usuario, vehículo ni datos de la cita.
-  console.error('Fallo al procesar un recordatorio.', {
-    reminderId,
-    attempt,
-    error: error instanceof Error ? error.name : 'Error',
-  });
+  logError(
+    'Fallo al procesar un recordatorio.',
+    `reminderId=${reminderId} attempt=${attempt} error=${
+      error instanceof Error ? error.name : 'Error'
+    }`,
+  );
 
   if (attempt < MAX_CONSECUTIVE_FAILURES) {
     consecutiveFailures.set(reminderId, attempt);
@@ -123,9 +125,10 @@ async function registerFailure(
       { id: reminderId },
       { processedAt: now },
     );
-    console.warn('El recordatorio se descartó tras 5 fallos seguidos.', {
-      reminderId,
-    });
+    warn(
+      'El recordatorio se descartó tras 5 fallos seguidos.',
+      `reminderId=${reminderId}`,
+    );
   } catch {
     // Si tampoco se puede marcar, se reintenta en el siguiente ciclo.
   }
@@ -252,7 +255,7 @@ export function startReminderWorker(
         lastCleanupAt = now.getTime();
       }
     } catch (error) {
-      console.error(
+      logError(
         'El trabajador de recordatorios falló en este ciclo.',
         error instanceof Error ? error.name : 'Error',
       );

@@ -6,7 +6,6 @@ import { AppState, Platform } from 'react-native';
 
 import {
   apiRequest,
-  setSessionExpiredHandler,
   setTokenProvider,
 } from '../../api/client';
 import { clearLocalReminders } from '../../notifications/local';
@@ -32,10 +31,6 @@ export function AuthBridge({ queryClient }: { queryClient: QueryClient }) {
       isLoaded && isSignedIn ? getToken(options) : null,
     );
   }, [isLoaded, isSignedIn, getToken]);
-
-  useEffect(() => {
-    setSessionExpiredHandler(closeExpiredSession);
-  }, [closeExpiredSession]);
 
   // Al volver al primer plano se comprueba que la sesión siga vigente.
   useEffect(() => {
@@ -64,7 +59,7 @@ export function AuthBridge({ queryClient }: { queryClient: QueryClient }) {
         return;
       }
 
-      // Un 401 aquí dispara el cierre local registrado arriba.
+      // Si el servidor rechaza el token se avisa al usuario; no se cierra la sesión.
       await apiRequest<unknown>('/me').catch(() => undefined);
     };
 

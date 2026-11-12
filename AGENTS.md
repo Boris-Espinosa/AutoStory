@@ -29,6 +29,7 @@ Reglas del proyecto AutoStory-app.
 - El paquete de Clerk para Expo es `@clerk/expo` (no `@clerk/clerk-expo`) y el hook de inicio de sesión es `useSSO` (`useOAuth` está obsoleto).
 - Las redirecciones tras iniciar sesión solo aceptan rutas internas.
 - En Expo Go solo se prueba Google; Apple requiere un development build.
+- El inicio de sesión se prueba con el development build, no con Expo Go.
 - La URL de redirección de Clerk debe estar en la lista permitida del panel.
 - Nunca imprimas claves ni tokens en los registros.
 - Configuración por variables de entorno (`DATABASE_URL`, `TEST_DATABASE_URL`, `PORT`, `CORS_ORIGIN`). Nunca escribas credenciales en el código y mantén un `.env.example` sin secretos.

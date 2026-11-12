@@ -1,6 +1,3 @@
-// El backend usa zod 3; el frontend zod 4 expone esa API en "zod/v3".
-import { z } from 'zod/v3';
-
 export const LICENSE_PLATE_MESSAGE =
   'La patente no tiene un formato válido. Ejemplos: BCDF12 (auto), ABC12 (moto), AB1234 (formato antiguo)';
 
@@ -35,11 +32,3 @@ export function normalizeLicensePlate(value: string): string {
 export function isValidLicensePlate(value: string): boolean {
   return LICENSE_PLATE_FORMATS.some((format) => format.regex.test(value));
 }
-
-export const plateSchema = z
-  .string({
-    required_error: 'La patente es obligatoria.',
-    invalid_type_error: 'La patente es obligatoria.',
-  })
-  .transform(normalizeLicensePlate)
-  .refine(isValidLicensePlate, { message: LICENSE_PLATE_MESSAGE });

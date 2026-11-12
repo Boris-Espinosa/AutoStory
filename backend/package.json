@@ -10,7 +10,6 @@
     "start": "node dist/server.js",
     "seed": "ts-node src/seed.ts",
     "dev:adopt": "ts-node src/adopt-user.ts",
-    "check:data": "ts-node src/check-data.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/db/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/db/data-source.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/db/data-source.ts src/migrations/Migration",

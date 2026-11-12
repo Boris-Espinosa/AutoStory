@@ -1,7 +1,6 @@
 import {
   isClerkAPIResponseError,
   isKnownError,
-  useAuth,
   useSSO,
 } from '@clerk/expo';
 import { useSignIn } from '@clerk/expo/legacy';
@@ -39,9 +38,13 @@ const PAGE_TITLE = 'Iniciar sesión · AutoStory';
 const SSO_CALLBACK_PATH = 'sso-callback';
 
 const NETWORK_ERROR = 'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.';
-const INCOMPLETE_SIGN_IN = 'No pudimos completar el inicio de sesión.';
+const INCOMPLETE_SIGN_IN =
+  'No pudimos completar el inicio de sesión. Inténtalo de nuevo';
 const APPLE_UNAVAILABLE_IN_EXPO_GO =
   'Apple no está disponible en Expo Go. Usa Google o una versión instalada de la app';
+
+/** Tras este tiempo se rehabilita la pantalla aunque startSSOFlow no responda. */
+const SSO_TIMEOUT_MS = 60_000;
 
 type OAuthProvider = 'oauth_google' | 'oauth_apple';
 
@@ -54,7 +57,6 @@ function makeRedirectUrl(): string {
 }
 
 export default function SignInScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
   const { startSSOFlow } = useSSO();
   // Solo para web: flujo de redirección completa cuando la ventana emergente no puede abrirse.
   const { signIn } = useSignIn();
@@ -69,13 +71,6 @@ export default function SignInScreen() {
   const sessionExpired = params.reason === 'expired';
   const accountDeleted = params.reason === 'deleted';
 
-  // Si el usuario ya tiene sesión, no se muestra esta pantalla.
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace(target);
-    }
-  }, [isLoaded, isSignedIn, target]);
-
   // Android: precargar el navegador del sistema acelera la apertura del flujo.
   useEffect(() => {
     if (Platform.OS !== 'android') {
@@ -88,17 +83,19 @@ export default function SignInScreen() {
     };
   }, []);
 
-  // Diagnóstico del redirect en desarrollo (nunca imprime claves ni tokens).
+  // Garantiza que el indicador de carga termine aunque startSSOFlow no resuelva.
   useEffect(() => {
-    if (__DEV__) {
-      console.log(
-        '[sign-in] redirectUrl:',
-        makeRedirectUrl(),
-        'entorno:',
-        Constants.executionEnvironment,
-      );
+    if (!pending) {
+      return;
     }
-  }, []);
+
+    const timer = setTimeout(() => {
+      setPending(null);
+      setError(INCOMPLETE_SIGN_IN);
+    }, SSO_TIMEOUT_MS);
+
+    return () => clearTimeout(timer);
+  }, [pending]);
 
   // Título de la pestaña en web.
   useEffect(() => {
@@ -124,27 +121,35 @@ export default function SignInScreen() {
     setPending(provider);
 
     try {
-      const { createdSessionId, setActive, authSessionResult } = await startSSOFlow({
+      const {
+        createdSessionId,
+        setActive,
+        authSessionResult,
+      } = await startSSOFlow({
         strategy: provider,
         redirectUrl: makeRedirectUrl(),
       });
 
-      if (createdSessionId) {
-        // Cubre el inicio de sesión y las cuentas nuevas creadas desde un inicio transferible.
-        if (setActive) {
-          await setActive({ session: createdSessionId });
+      if (!createdSessionId) {
+        // Sin sesión creada: quedan requisitos pendientes o el usuario canceló.
+        const cancelled =
+          authSessionResult?.type === 'cancel' || authSessionResult?.type === 'dismiss';
+
+        if (!cancelled) {
+          setError(INCOMPLETE_SIGN_IN);
         }
-        router.replace(target);
+
         return;
       }
 
-      if (authSessionResult?.type === 'success') {
-        // El proveedor devolvió al usuario pero quedan requisitos pendientes (p. ej. un dato obligatorio).
+      if (!setActive) {
         setError(INCOMPLETE_SIGN_IN);
         return;
       }
 
-      // Cancelación (el usuario cerró el navegador): sin mensaje y botones habilitados.
+      await setActive({ session: createdSessionId });
+
+      // La navegación la hace el efecto de _layout cuando isSignedIn pasa a true.
     } catch (caught) {
       if (
         isClerkAPIResponseError(caught) &&
@@ -166,13 +171,11 @@ export default function SignInScreen() {
           return;
         } catch (redirectError) {
           setError(userMessage(redirectError, provider));
-          logErrorInDev(redirectError);
           return;
         }
       }
 
       setError(userMessage(caught, provider));
-      logErrorInDev(caught);
     } finally {
       setPending(null);
     }
@@ -233,13 +236,6 @@ function userMessage(error: unknown, provider: OAuthProvider): string {
   return isKnownError(error)
     ? `No pudimos iniciar sesión con ${providerName}. Inténtalo de nuevo o usa el otro método.`
     : NETWORK_ERROR;
-}
-
-/** El detalle del error solo va a la consola en desarrollo. */
-function logErrorInDev(error: unknown): void {
-  if (__DEV__) {
-    console.warn('[sign-in]', error);
-  }
 }
 
 interface ProviderButtonProps {

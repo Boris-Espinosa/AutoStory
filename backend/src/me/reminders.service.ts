@@ -1,6 +1,6 @@
 import { In, Repository } from 'typeorm';
 import { Clock } from '../common/clock';
-import { Appointment, AppointmentStatus } from '../entities/Appointment';
+import { AppointmentStatus } from '../entities/Appointment';
 import { AppointmentReminder } from '../entities/AppointmentReminder';
 import { Vehicle } from '../entities/Vehicle';
 import { Workshop } from '../entities/Workshop';

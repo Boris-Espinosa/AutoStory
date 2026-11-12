@@ -1,6 +1,3 @@
-// El backend usa zod 3; el frontend zod 4 expone esa API en "zod/v3".
-import { z } from 'zod/v3';
-
 export const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 
 export const VIN_FORMAT_MESSAGE =
@@ -46,17 +43,6 @@ export type VinValidation =
       message: string;
     };
 
-/** Quita espacios y normaliza a mayúsculas. El resto se valida, no se borra. */
-export function normalizeVin(value: string | null | undefined): string | null {
-  if (value == null) {
-    return null;
-  }
-
-  const normalized = value.trim().toUpperCase().replace(/ /g, '');
-
-  return normalized.length > 0 ? normalized : null;
-}
-
 /** Dígito verificador ISO 3779 de la posición 9, o null si el VIN no es de 17. */
 export function calculateVinCheckDigit(vin: string): string | null {
   if (vin.length !== 17) {
@@ -99,46 +85,3 @@ export function validateVin(vin: string): VinValidation {
 
   return { ok: true };
 }
-
-function addValidationIssue(
-  value: string | null,
-  context: z.RefinementCtx,
-): void {
-  if (value === null) {
-    return;
-  }
-
-  const result = validateVin(value);
-
-  if (!result.ok) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: result.message });
-  }
-}
-
-/** VIN de un formulario: opcional y una cadena vacía equivale a ausente. */
-export const vinSchema = z
-  .union([z.string(), z.null()], {
-    invalid_type_error: 'El VIN no es válido.',
-  })
-  .optional()
-  .transform((value) => normalizeVin(value ?? null))
-  .superRefine(addValidationIssue);
-
-/** VIN de una ruta: obligatorio. */
-export const vinParamSchema = z
-  .string({
-    required_error: VIN_FORMAT_MESSAGE,
-    invalid_type_error: VIN_FORMAT_MESSAGE,
-  })
-  .transform((value) => normalizeVin(value) ?? '')
-  .superRefine((value, context) => {
-    const result = validateVin(value);
-
-    if (!result.ok) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: result.message,
-        path: ['vin'],
-      });
-    }
-  });

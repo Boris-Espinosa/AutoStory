@@ -10,5 +10,3 @@ export const listRemindersQuerySchema = z
       .default(50),
   })
   .strip();
-
-export type ListRemindersQuery = z.infer<typeof listRemindersQuerySchema>;

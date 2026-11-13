@@ -1,4 +1,43 @@
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+/** Sin barra final. En producción la URL es obligatoria: no hay valor por defecto. */
+export const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? 'http://localhost:3000' : '')
+).replace(/\/+$/, '');
+
+export const API_URL_CONFIGURED = API_BASE_URL.length > 0;
+
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/** Esperas entre reintentos cuando el servidor dormido no responde. */
+const RETRY_DELAYS_MS = [2_000, 4_000, 8_000];
+
+export const SERVER_WAKING_MESSAGE =
+  'El servidor está iniciando, puede tardar hasta un minuto';
+
+type ServerWakingListener = (waking: boolean) => void;
+
+const serverWakingListeners = new Set<ServerWakingListener>();
+
+export function subscribeServerWaking(listener: ServerWakingListener): () => void {
+  serverWakingListeners.add(listener);
+
+  return () => {
+    serverWakingListeners.delete(listener);
+  };
+}
+
+function notifyServerWaking(waking: boolean): void {
+  serverWakingListeners.forEach((listener) => listener(waking));
+}
+
+/** Despierta el backend sin bloquear la interfaz. */
+export function checkServerHealth(): void {
+  void fetchApi('/health', { method: 'GET' }, {}).catch(() => undefined);
+}
+
+/** Si photoUrl ya es absoluta se usa tal cual; si no, es relativa al API. */
+export function resolvePhotoUrl(photoUrl: string): string {
+  return photoUrl.startsWith('http') ? photoUrl : `${API_BASE_URL}${photoUrl}`;
+}
 
 export const SESSION_REJECTED_MESSAGE =
   'El servidor no aceptó tu sesión. Inténtalo de nuevo más tarde.';
@@ -75,23 +114,54 @@ async function requestToken(options: TokenRequestOptions = {}): Promise<string |
   return tokenProvider ? tokenProvider(options) : null;
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchApi(
   path: string,
   init: RequestInit,
   headers: Record<string, string>,
 ): Promise<Response> {
-  try {
-    return await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  } catch {
-    if (__DEV__) {
-      console.warn('[auth] api', (init.method ?? 'GET').toUpperCase(), path, 'sin conexión');
+  for (let attempt = 0; ; attempt += 1) {
+    if (attempt > 0) {
+      // Plan gratuito de Render: el servidor dormido tarda en despertar.
+      notifyServerWaking(true);
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt - 1]));
     }
 
-    throw new ApiError(
-      'No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.',
-      0,
-    );
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
+        ...init,
+        headers,
+      });
+
+      notifyServerWaking(false);
+      return response;
+    } catch {
+      if (attempt >= RETRY_DELAYS_MS.length) {
+        break;
+      }
+    }
   }
+
+  notifyServerWaking(false);
+
+  if (__DEV__) {
+    console.warn('[auth] api', (init.method ?? 'GET').toUpperCase(), path, 'sin conexión');
+  }
+
+  throw new ApiError(
+    'No se pudo conectar con el servidor. Verifica tu conexión e intenta nuevamente.',
+    0,
+  );
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {

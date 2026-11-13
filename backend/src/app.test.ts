@@ -65,6 +65,49 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /health/db', () => {
+  function fakeDbDataSource(query: () => Promise<unknown>): DataSource {
+    return {
+      getRepository: () => ({ findOne: async () => ({ id: 'user-1' }) }),
+      query,
+    } as unknown as DataSource;
+  }
+
+  it('responde 200 cuando la base responde', async () => {
+    await withServer(
+      fakeDbDataSource(async () => [{ '?column?': 1 }]),
+      async (baseUrl) => {
+        const response = await request(baseUrl, '/health/db');
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ status: 'ok' });
+      },
+    );
+  });
+
+  it('responde 503 cuando la base no responde', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      await withServer(
+        fakeDbDataSource(async () => {
+          throw new Error('sin conexión');
+        }),
+        async (baseUrl) => {
+          const response = await request(baseUrl, '/health/db');
+
+          expect(response.status).toBe(503);
+          expect(response.body).toEqual({ status: 'error' });
+        },
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+});
+
 describe('formato de errores', () => {
   it('traduce un error de zod a 400 con { errors: [{ field, message }] }', async () => {
     await withServer(fakeDataSource(), async (baseUrl) => {

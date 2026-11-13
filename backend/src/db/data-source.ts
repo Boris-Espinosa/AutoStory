@@ -41,26 +41,17 @@ export const MIGRATIONS = [
 ];
 
 export function buildDataSourceOptions(): DataSourceOptions {
-  const common = {
-    type: 'postgres' as const,
-    entities: ENTITIES,
+  return {
+    type: 'postgres',
+    // Los imports de src/migrations se compilan junto al resto a dist/migrations.
     migrations: MIGRATIONS,
+    url: env.databaseUrl,
+    entities: ENTITIES,
     // Solo migraciones: sincronizar automáticamente puede perder datos.
     synchronize: false,
     logging: false,
-  };
-
-  if (env.databaseUrl) {
-    return { ...common, url: env.databaseUrl };
-  }
-
-  return {
-    ...common,
-    host: env.database.host!,
-    port: env.database.port!,
-    username: env.database.username!,
-    password: env.database.password!,
-    database: env.database.name!,
+    ssl: env.database.ssl ? { rejectUnauthorized: false } : false,
+    extra: { max: env.database.poolMax },
   };
 }
 

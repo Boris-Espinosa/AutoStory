@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_BASE_URL, ApiError } from '../../../src/api/client';
+import { resolvePhotoUrl, ApiError } from '../../../src/api/client';
 import { useAppointments } from '../../../src/api/appointments';
 import {
   useExpensesSummary,
@@ -325,6 +325,7 @@ export default function VehicleDetailScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   const flashParam = Array.isArray(params.flash) ? params.flash[0] : params.flash;
 
@@ -381,9 +382,7 @@ export default function VehicleDetailScreen() {
     });
   };
 
-  const photoUri = vehicle?.photoUrl
-    ? `${API_BASE_URL}${vehicle.photoUrl}`
-    : null;
+  const photoUri = vehicle?.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
 
   return (
     <Screen maxWidth={layout.detailMaxWidth} scroll>
@@ -442,8 +441,9 @@ export default function VehicleDetailScreen() {
       {vehicle ? (
         <>
           <View style={[styles.hero, isWide && styles.heroWide]}>
-            {photoUri ? (
+            {photoUri && !photoFailed ? (
               <Image
+                onError={() => setPhotoFailed(true)}
                 resizeMode="cover"
                 source={{ uri: photoUri }}
                 style={[styles.heroPhoto, isWide && styles.heroPhotoWide]}

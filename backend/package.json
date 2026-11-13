@@ -2,12 +2,16 @@
   "name": "autostory-backend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "description": "API de AutoStory: Express + TypeScript + PostgreSQL + TypeORM + zod",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
+    "start:prod": "node dist/db/run-migrations.js && node dist/server.js",
     "seed": "ts-node src/seed.ts",
     "dev:adopt": "ts-node src/adopt-user.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/db/data-source.ts",
@@ -18,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1168.0",
     "@clerk/backend": "^3.27.0",
     "@clerk/express": "^2.1.88",
     "cors": "^2.8.5",

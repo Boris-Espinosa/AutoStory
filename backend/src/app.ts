@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { createAuthMiddleware } from './auth/auth.middleware';
 import { Clock, systemClock } from './common/clock';
 import { errorHandler, notFoundHandler } from './common/error-handler';
+import { error as logError } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { Appointment } from './entities/Appointment';
@@ -38,6 +39,10 @@ import { VinDecoderService } from './vehicles/vin-decoder.service';
 import { WorkshopService } from './workshops/workshop.service';
 import { createWorkshopsRouter } from './workshops/workshops.controller';
 import {
+  createStorageService,
+  StorageService,
+} from './storage/storage.service';
+import {
   ClerkProfileProvider,
   ProfileProvider,
   UserSyncService,
@@ -48,6 +53,7 @@ export function createApp(
   clock: Clock = systemClock,
   profileProvider: ProfileProvider = new ClerkProfileProvider(),
   userDeleter: ClerkUserDeleter = new ClerkUserDeleterService(),
+  storage: StorageService = createStorageService(),
 ): Express {
   const access = new VehicleAccessService(
     dataSource.getRepository(UserVehicle),
@@ -106,6 +112,7 @@ export function createApp(
   const accountDeletionService = new AccountDeletionService(
     dataSource,
     userDeleter,
+    storage,
   );
 
   const vehiclesService = new VehiclesService({
@@ -117,9 +124,10 @@ export function createApp(
 
   const app = express();
 
+  app.set('trust proxy', 1);
   app.use(
     cors({
-      origin: env.corsOrigin,
+      origin: env.corsOrigins,
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
@@ -161,6 +169,19 @@ export function createApp(
     res.json({ status: 'ok' });
   });
 
+  app.get('/health/db', async (_req, res) => {
+    try {
+      await dataSource.query('SELECT 1');
+      res.json({ status: 'ok' });
+    } catch (error) {
+      logError(
+        'La base de datos no respondió al diagnóstico.',
+        error instanceof Error ? error.name : 'Error',
+      );
+      res.status(503).json({ status: 'error' });
+    }
+  });
+
   app.use('/parts', createPartsRouter(partsService, access, auth));
   app.use('/workshops', createWorkshopsRouter(workshopService, auth));
   app.use(
@@ -186,6 +207,7 @@ export function createApp(
       auth,
       vinDecoder,
       clock,
+      storage,
     ),
   );
 

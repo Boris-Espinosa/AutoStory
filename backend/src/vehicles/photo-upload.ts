@@ -1,24 +1,33 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import path from 'path';
 import { ErrorRequestHandler } from 'express';
 import multer from 'multer';
+import { env } from '../config/env';
+import {
+  ImageExtension,
+  VEHICLE_UPLOADS_DIR,
+} from '../storage/storage.service';
 
-export const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
-export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
-export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
+export {
+  UPLOADS_DIR,
+  VEHICLE_UPLOADS_DIR,
+  VEHICLE_PHOTO_URL_PREFIX,
+} from '../storage/storage.service';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true }).catch(() => undefined);
 
 export const vehiclePhotoUpload = multer({
-  storage: multer.diskStorage({
-    destination: VEHICLE_UPLOADS_DIR,
-    // La extensión real se decide después, leyendo la firma del archivo.
-    filename: (_req, _file, callback) =>
-      callback(null, `${randomUUID()}.tmp`),
-  }),
+  storage:
+    env.storage.driver === 's3'
+      ? multer.memoryStorage()
+      : multer.diskStorage({
+          destination: VEHICLE_UPLOADS_DIR,
+          // La extensión real se decide después, leyendo la firma del archivo.
+          filename: (_req, _file, callback) =>
+            callback(null, `${randomUUID()}.tmp`),
+        }),
   limits: { fileSize: MAX_PHOTO_BYTES },
 });
 
@@ -41,13 +50,11 @@ export const photoUploadErrors: ErrorRequestHandler = (
   next(error);
 };
 
-export type ImageExtension = 'jpg' | 'png' | 'webp';
-
 /** Detecta el tipo por la firma real del archivo, no por su nombre. */
 export async function detectImageExtension(
-  filePath: string,
+  source: Buffer | string,
 ): Promise<ImageExtension | null> {
-  const header = await fs.readFile(filePath);
+  const header = Buffer.isBuffer(source) ? source : await fs.readFile(source);
 
   if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
     return 'jpg';
@@ -70,15 +77,4 @@ export async function detectImageExtension(
   }
 
   return null;
-}
-
-/** Borra una foto guardada, ignorando rutas ajenas o inexistentes. */
-export async function removeVehiclePhoto(photoUrl: string | null): Promise<void> {
-  if (!photoUrl || !photoUrl.startsWith(VEHICLE_PHOTO_URL_PREFIX)) {
-    return;
-  }
-
-  await fs.rm(path.join(VEHICLE_UPLOADS_DIR, path.basename(photoUrl)), {
-    force: true,
-  });
 }

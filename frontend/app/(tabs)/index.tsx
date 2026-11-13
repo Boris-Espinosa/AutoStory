@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_BASE_URL } from '../../src/api/client';
+import { resolvePhotoUrl } from '../../src/api/client';
 import { Vehicle, useVehicles } from '../../src/api/vehicles';
 import { MessageBanner } from '../../src/components/MessageBanner';
 import { Badge } from '../../src/components/ui/Badge';
@@ -37,9 +37,8 @@ const FLASH_DURATION_MS = 5000;
 const PHOTO_SIZE = layout.photoSize;
 
 function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
-  const photoUri = vehicle.photoUrl
-    ? `${API_BASE_URL}${vehicle.photoUrl}`
-    : null;
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photoUri = vehicle.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
 
   return (
     <Card
@@ -53,8 +52,12 @@ function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
       style={styles.card}
     >
       <View style={styles.cardRow}>
-        {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photo} />
+        {photoUri && !photoFailed ? (
+          <Image
+            onError={() => setPhotoFailed(true)}
+            source={{ uri: photoUri }}
+            style={styles.photo}
+          />
         ) : (
           <View style={[styles.photo, styles.photoPlaceholder]}>
             <Icon

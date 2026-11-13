@@ -1,5 +1,4 @@
 import { promises as fs } from 'fs';
-import path from 'path';
 import { RequestHandler, Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -12,6 +11,7 @@ import {
   validateBody,
 } from '../common/validation-pipe';
 import { HttpError } from '../common/http-error';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateAppointmentInput,
   createAppointmentSchema,
@@ -29,10 +29,8 @@ import {
 import { PartsService } from '../parts/parts.service';
 import { BRANDS } from './brands';
 import {
-  VEHICLE_PHOTO_URL_PREFIX,
   detectImageExtension,
   photoUploadErrors,
-  removeVehiclePhoto,
   vehiclePhotoUpload,
 } from './photo-upload';
 import {
@@ -54,6 +52,7 @@ export function createVehiclesRouter(
   auth: RequestHandler,
   vinDecoder: VinDecoderService,
   clock: Clock,
+  storage: StorageService,
 ): Router {
   const router = Router();
 
@@ -257,10 +256,10 @@ export function createVehiclesRouter(
     asyncHandler(async (req, res) => {
       const photoUrl = await vehiclesService.remove(req.params.vehicleId);
 
-      // La foto se borra solo una vez confirmada la transacción, y un fallo de
-      // disco no cambia la respuesta: el vehículo ya no existe.
+      // La foto se borra solo una vez confirmada la transacción, y un fallo del
+      // almacenamiento no cambia la respuesta: el vehículo ya no existe.
       try {
-        await removeVehiclePhoto(photoUrl);
+        await storage.remove(photoUrl);
       } catch (error) {
         logError(
           'No se pudo borrar la foto del vehículo.',
@@ -284,31 +283,49 @@ export function createVehiclesRouter(
         throw new HttpError(400, 'La foto es obligatoria.');
       }
 
-      const extension = await detectImageExtension(req.file.path);
+      const source: Buffer | string = req.file.buffer ?? req.file.path;
+      const extension = await detectImageExtension(source);
 
       if (!extension) {
-        await fs.rm(req.file.path, { force: true });
+        if (typeof source === 'string') {
+          await fs.rm(source, { force: true });
+        }
         throw new HttpError(
           400,
           'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
         );
       }
 
-      const finalPath = req.file.path.replace(/\.tmp$/, `.${extension}`);
-      await fs.rename(req.file.path, finalPath);
+      let photoUrl: string;
 
-      const photoUrl = `${VEHICLE_PHOTO_URL_PREFIX}${path.basename(finalPath)}`;
+      try {
+        photoUrl = await storage.save(source, extension);
+      } catch (error) {
+        logError(
+          'No se pudo guardar la foto del vehículo.',
+          error instanceof Error ? error.name : undefined,
+        );
+        throw new HttpError(500, 'No se pudo guardar la foto.');
+      }
 
       let previous: string | null;
 
       try {
         previous = await vehiclesService.setPhoto(req.params.vehicleId, photoUrl);
       } catch (error) {
-        await fs.rm(finalPath, { force: true });
+        // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
+        await storage.remove(photoUrl).catch(() => undefined);
         throw error;
       }
 
-      await removeVehiclePhoto(previous);
+      try {
+        await storage.remove(previous);
+      } catch (error) {
+        logError(
+          'No se pudo borrar la foto anterior del vehículo.',
+          error instanceof Error ? error.name : undefined,
+        );
+      }
 
       res.json({ photoUrl });
     }),

@@ -73,4 +73,57 @@ describe('configuración de entorno', () => {
       'http://b.test',
     ]);
   });
+
+  it('separa CORS_ORIGIN y quita la barra final', () => {
+    const { env } = loadEnv({
+      NODE_ENV: 'test',
+      AUTH_MODE: 'clerk',
+      CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+      CLERK_SECRET_KEY: 'sk_test_ejemplo',
+      CORS_ORIGIN: 'http://a.test/ , http://b.test/',
+    });
+
+    expect(env.corsOrigins).toEqual(['http://a.test', 'http://b.test']);
+  });
+
+  it('en producción exige CORS_ORIGIN y DATABASE_URL', () => {
+    const base = {
+      NODE_ENV: 'production',
+      AUTH_MODE: 'clerk',
+      CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+      CLERK_SECRET_KEY: 'sk_test_ejemplo',
+      DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+      CORS_ORIGIN: 'https://app.test',
+    };
+
+    expect(() => loadEnv({ ...base, CORS_ORIGIN: undefined })).toThrow(
+      /CORS_ORIGIN/,
+    );
+    expect(() => loadEnv({ ...base, DATABASE_URL: undefined })).toThrow(
+      /DATABASE_URL/,
+    );
+    expect(() =>
+      loadEnv({ ...base, CORS_ORIGIN: 'https://*.app.test' }),
+    ).toThrow(/comodines/);
+  });
+
+  it('en producción con STORAGE_DRIVER=s3 exige toda la configuración S3', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        AUTH_MODE: 'clerk',
+        CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+        CLERK_SECRET_KEY: 'sk_test_ejemplo',
+        DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+        CORS_ORIGIN: 'https://app.test',
+        STORAGE_DRIVER: 's3',
+        S3_ENDPOINT: undefined,
+        S3_REGION: undefined,
+        S3_BUCKET: undefined,
+        S3_ACCESS_KEY_ID: undefined,
+        S3_SECRET_ACCESS_KEY: undefined,
+        S3_PUBLIC_BASE_URL: undefined,
+      }),
+    ).toThrow(/S3_BUCKET/);
+  });
 });

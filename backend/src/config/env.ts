@@ -1,5 +1,25 @@
 import 'dotenv/config';
+import path from 'path';
 import { z } from 'zod';
+
+const DEFAULT_CORS_ORIGIN = 'http://localhost:8081';
+
+/** Separa por comas y quita la barra final de cada origen. */
+function splitOrigins(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter((origin) => origin.length > 0);
+}
+
+function isValidOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 const envSchema = z
   .object({
@@ -7,23 +27,17 @@ const envSchema = z
       .enum(['development', 'test', 'production'])
       .default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
-    CORS_ORIGIN: z
-      .string()
-      .url('CORS_ORIGIN debe ser una URL válida.')
-      .default('http://localhost:8081'),
+    CORS_ORIGIN: z.string().optional(),
     DATABASE_URL: z
       .string()
       .url('DATABASE_URL debe ser una URL válida.')
       .optional(),
+    DATABASE_SSL: z.enum(['true', 'false']).default('false'),
+    DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
     TEST_DATABASE_URL: z
       .string()
       .url('TEST_DATABASE_URL debe ser una URL válida.')
       .optional(),
-    PGHOST: z.string().min(1).optional(),
-    PGPORT: z.coerce.number().int().positive().optional(),
-    PGUSER: z.string().min(1).optional(),
-    PGPASSWORD: z.string().min(1).optional(),
-    PGDATABASE: z.string().min(1).optional(),
     AUTH_MODE: z.enum(['clerk', 'dev-header']).default('clerk'),
     CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
     CLERK_SECRET_KEY: z.string().min(1).optional(),
@@ -34,8 +48,57 @@ const envSchema = z
       .int()
       .positive()
       .default(60),
+    UPLOADS_DIR: z.string().min(1).optional(),
+    STORAGE_DRIVER: z.enum(['disk', 's3']).default('disk'),
+    S3_ENDPOINT: z.string().url('S3_ENDPOINT debe ser una URL válida.').optional(),
+    S3_REGION: z.string().min(1).optional(),
+    S3_BUCKET: z.string().min(1).optional(),
+    S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    S3_PUBLIC_BASE_URL: z
+      .string()
+      .url('S3_PUBLIC_BASE_URL debe ser una URL válida.')
+      .optional(),
   })
   .superRefine((value, context) => {
+    const corsOrigins = splitOrigins(value.CORS_ORIGIN);
+    const authorizedParties = splitOrigins(value.CLERK_AUTHORIZED_PARTIES);
+
+    if (value.NODE_ENV === 'production' && corsOrigins.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CORS_ORIGIN'],
+        message: 'Falta CORS_ORIGIN (uno o varios orígenes separados por comas).',
+      });
+    }
+
+    for (const origin of [...corsOrigins, ...authorizedParties]) {
+      if (value.NODE_ENV === 'production' && origin.includes('*')) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [
+            corsOrigins.includes(origin)
+              ? 'CORS_ORIGIN'
+              : 'CLERK_AUTHORIZED_PARTIES',
+          ],
+          message: `No se permiten comodines en producción: ${origin}`,
+        });
+        continue;
+      }
+
+      if (!isValidOrigin(origin)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [
+            corsOrigins.includes(origin)
+              ? 'CORS_ORIGIN'
+              : 'CLERK_AUTHORIZED_PARTIES',
+          ],
+          message: `Origen inválido: ${origin}`,
+        });
+      }
+    }
+
     if (value.AUTH_MODE === 'dev-header' && value.NODE_ENV === 'production') {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -62,29 +125,38 @@ const envSchema = z
       }
     }
 
+    if (value.STORAGE_DRIVER === 's3' && value.NODE_ENV === 'production') {
+      const required = [
+        'S3_ENDPOINT',
+        'S3_REGION',
+        'S3_BUCKET',
+        'S3_ACCESS_KEY_ID',
+        'S3_SECRET_ACCESS_KEY',
+        'S3_PUBLIC_BASE_URL',
+      ] as const;
+
+      for (const variable of required) {
+        if (value[variable] === undefined) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [variable],
+            message: `STORAGE_DRIVER=s3 requiere ${variable}.`,
+          });
+        }
+      }
+    }
+
     // En tests la conexión de desarrollo no se usa: los tests de integración
     // arman su propio DataSource con TEST_DATABASE_URL.
     if (value.DATABASE_URL || value.NODE_ENV === 'test') {
       return;
     }
 
-    const required = [
-      'PGHOST',
-      'PGPORT',
-      'PGUSER',
-      'PGPASSWORD',
-      'PGDATABASE',
-    ] as const;
-
-    for (const variable of required) {
-      if (value[variable] === undefined) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [variable],
-          message: `Falta ${variable} o DATABASE_URL.`,
-        });
-      }
-    }
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DATABASE_URL'],
+      message: 'Falta DATABASE_URL.',
+    });
   });
 
 const parsed = envSchema.safeParse(process.env);
@@ -99,14 +171,16 @@ if (!parsed.success) {
   );
 }
 
-const authorizedParties = parsed.data.CLERK_AUTHORIZED_PARTIES?.split(',')
-  .map((value) => value.trim())
-  .filter((value) => value.length > 0);
+const corsOrigins = splitOrigins(parsed.data.CORS_ORIGIN);
+const allowedOrigins =
+  corsOrigins.length > 0 ? corsOrigins : [DEFAULT_CORS_ORIGIN];
+const authorizedParties = splitOrigins(parsed.data.CLERK_AUTHORIZED_PARTIES);
 
 export const env = {
   nodeEnv: parsed.data.NODE_ENV,
   port: parsed.data.PORT,
-  corsOrigin: parsed.data.CORS_ORIGIN,
+  corsOrigin: allowedOrigins[0],
+  corsOrigins: allowedOrigins,
   databaseUrl: parsed.data.DATABASE_URL,
   testDatabaseUrl: parsed.data.TEST_DATABASE_URL,
   auth: {
@@ -114,19 +188,28 @@ export const env = {
     publishableKey: parsed.data.CLERK_PUBLISHABLE_KEY,
     secretKey: parsed.data.CLERK_SECRET_KEY,
     authorizedParties:
-      authorizedParties && authorizedParties.length > 0
-        ? authorizedParties
-        : undefined,
+      authorizedParties.length > 0 ? authorizedParties : undefined,
   },
   reminderWorker: {
     enabled: parsed.data.REMINDER_WORKER_ENABLED === 'true',
     intervalSeconds: parsed.data.REMINDER_WORKER_INTERVAL_SECONDS,
   },
   database: {
-    host: parsed.data.PGHOST,
-    port: parsed.data.PGPORT,
-    username: parsed.data.PGUSER,
-    password: parsed.data.PGPASSWORD,
-    name: parsed.data.PGDATABASE,
+    ssl: parsed.data.DATABASE_SSL === 'true',
+    poolMax: parsed.data.DATABASE_POOL_MAX,
+  },
+  uploadsDir: path.resolve(
+    parsed.data.UPLOADS_DIR ?? path.resolve(__dirname, '../../uploads'),
+  ),
+  storage: {
+    driver: parsed.data.STORAGE_DRIVER,
+    s3: {
+      endpoint: parsed.data.S3_ENDPOINT,
+      region: parsed.data.S3_REGION,
+      bucket: parsed.data.S3_BUCKET,
+      accessKeyId: parsed.data.S3_ACCESS_KEY_ID,
+      secretAccessKey: parsed.data.S3_SECRET_ACCESS_KEY,
+      publicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL?.replace(/\/+$/, ''),
+    },
   },
 };

@@ -7,6 +7,7 @@ import { createApp } from '../app';
 import { User } from '../entities/User';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
+import { createStorageService } from '../storage/storage.service';
 import { VEHICLE_UPLOADS_DIR } from '../vehicles/photo-upload';
 import { createTestDataSource } from './test-data-source';
 
@@ -16,12 +17,15 @@ const LICENSE_PLATE = 'BBJJ12';
 let dataSource: DataSource;
 let server: Server;
 let baseUrl: string;
+const storage = createStorageService();
 
 beforeAll(async () => {
   dataSource = createTestDataSource();
   await dataSource.initialize();
 
-  server = createServer(createApp(dataSource));
+  server = createServer(
+    createApp(dataSource, undefined, undefined, undefined, storage),
+  );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as AddressInfo;
   baseUrl = `http://127.0.0.1:${address.port}`;
@@ -550,6 +554,57 @@ describe('POST /vehicles/:vehicleId/photo', () => {
     const list = await api('GET', '/vehicles', { userId: 'user-1' });
     const [listed] = list.body as unknown as Array<{ photoUrl: string }>;
     expect(listed.photoUrl).toBe(secondUrl);
+  });
+
+  it('un fallo al borrar la foto anterior no rompe el reemplazo', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const first = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.png',
+      PNG_BYTES,
+    );
+    createdPhotos.push(first.body.photoUrl as string);
+
+    jest
+      .spyOn(storage, 'remove')
+      .mockRejectedValueOnce(new Error('fallo simulado'));
+
+    const second = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.png',
+      PNG_BYTES,
+    );
+    createdPhotos.push(second.body.photoUrl as string);
+
+    expect(second.status).toBe(200);
+
+    const list = await api('GET', '/vehicles', { userId: 'user-1' });
+    const [listed] = list.body as unknown as Array<{ photoUrl: string }>;
+    expect(listed.photoUrl).toBe(second.body.photoUrl);
+  });
+
+  it('un fallo al borrar la foto no impide eliminar el vehículo', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const photo = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.png',
+      PNG_BYTES,
+    );
+    createdPhotos.push(photo.body.photoUrl as string);
+
+    jest
+      .spyOn(storage, 'remove')
+      .mockRejectedValueOnce(new Error('fallo simulado'));
+
+    const response = await api('DELETE', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+    });
+
+    expect(response.status).toBe(204);
   });
 });
 

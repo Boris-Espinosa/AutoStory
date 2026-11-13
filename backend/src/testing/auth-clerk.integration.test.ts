@@ -237,19 +237,23 @@ describe('autenticación con Clerk', () => {
     }
   });
 
-  it('exige autenticación en todas las rutas salvo /health y /uploads', async () => {
+  it('exige autenticación en todas las rutas salvo /health, /health/db y /uploads', async () => {
     const routes = collectRoutes(createApp(dataSource, clock, provider));
 
     expect(routes).toEqual(
       expect.arrayContaining([
         { method: 'GET', path: '/health' },
+        { method: 'GET', path: '/health/db' },
         { method: 'GET', path: '/me' },
         { method: 'POST', path: '/vehicles' },
       ]),
     );
 
     for (const route of routes) {
-      if (route.method === 'GET' && route.path === '/health') {
+      if (
+        route.method === 'GET' &&
+        (route.path === '/health' || route.path === '/health/db')
+      ) {
         continue;
       }
 

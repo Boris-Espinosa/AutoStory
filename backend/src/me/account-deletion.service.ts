@@ -2,7 +2,7 @@ import { createClerkClient } from '@clerk/backend';
 import { DataSource } from 'typeorm';
 import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
-import { removeVehiclePhoto } from '../vehicles/photo-upload';
+import { StorageService } from '../storage/storage.service';
 
 const CLERK_TIMEOUT_MS = 5_000;
 
@@ -51,6 +51,7 @@ export class AccountDeletionService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly clerk: ClerkUserDeleter,
+    private readonly storage: StorageService,
   ) {}
 
   async preview(userId: string): Promise<AccountDeletionPreview> {
@@ -123,7 +124,7 @@ export class AccountDeletionService {
 
     for (const photoUrl of photoUrls) {
       try {
-        await removeVehiclePhoto(photoUrl);
+        await this.storage.remove(photoUrl);
       } catch {
         warn('No se pudo borrar una foto de un vehículo eliminado.');
       }

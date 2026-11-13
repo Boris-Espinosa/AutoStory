@@ -13,12 +13,19 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SESSION_REJECTED_MESSAGE, setSessionRejectedHandler } from '../src/api/client';
+import {
+  API_URL_CONFIGURED,
+  SESSION_REJECTED_MESSAGE,
+  SERVER_WAKING_MESSAGE,
+  checkServerHealth,
+  setSessionRejectedHandler,
+  subscribeServerWaking,
+} from '../src/api/client';
 import { Button } from '../src/components/ui/Button';
 import { MessageBanner } from '../src/components/MessageBanner';
 import { AuthBridge } from '../src/features/auth/AuthBridge';
 import { useLocalReminders } from '../src/notifications/local';
-import { colors, layout, spacing, typography } from '../src/theme';
+import { colors, fontSizes, layout, radius, spacing, typography } from '../src/theme';
 import { safeRedirect } from '../src/utils/safeRedirect';
 
 const queryClient = new QueryClient({
@@ -42,6 +49,10 @@ export default function RootLayout() {
 
   if (!publishableKey) {
     return <ClerkKeyMissing />;
+  }
+
+  if (!API_URL_CONFIGURED) {
+    return <ApiUrlMissing />;
   }
 
   return (
@@ -103,6 +114,7 @@ function AppShell({ onRetry }: { onRetry: () => void }) {
         )}
 
         <SessionRejectedBanner />
+        <ServerWakingBanner />
       </QueryClientProvider>
     </SafeAreaProvider>
   );
@@ -163,12 +175,47 @@ function SessionRejectedBanner() {
   );
 }
 
+/** Aviso discreto mientras el backend dormido despierta. */
+function ServerWakingBanner() {
+  const [waking, setWaking] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    checkServerHealth();
+    return subscribeServerWaking(setWaking);
+  }, []);
+
+  if (!waking) {
+    return null;
+  }
+
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      style={[styles.serverWaking, { top: insets.top + spacing.sm }]}
+    >
+      <Text style={styles.serverWakingText}>{SERVER_WAKING_MESSAGE}</Text>
+    </View>
+  );
+}
+
 function ClerkKeyMissing() {
   return (
     <View style={[styles.fill, styles.center]}>
       <Text style={styles.title}>Falta la clave de Clerk en el archivo .env</Text>
       <Text style={styles.message}>
         Agrega EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY y vuelve a iniciar la app.
+      </Text>
+    </View>
+  );
+}
+
+function ApiUrlMissing() {
+  return (
+    <View style={[styles.fill, styles.center]}>
+      <Text style={styles.title}>Falta la configuración del servidor</Text>
+      <Text style={styles.message}>
+        Define EXPO_PUBLIC_API_URL y vuelve a cargar la aplicación.
       </Text>
     </View>
   );
@@ -229,5 +276,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.lg,
     zIndex: 2,
+  },
+  serverWaking: {
+    backgroundColor: colors.infoBackground,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.md,
+    borderWidth: layout.borderWidth,
+    left: spacing.lg,
+    padding: spacing.sm,
+    position: 'absolute',
+    right: spacing.lg,
+    zIndex: 2,
+  },
+  serverWakingText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    textAlign: 'center',
   },
 });

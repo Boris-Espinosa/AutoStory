@@ -3,6 +3,29 @@ import { ApiError } from '../api/client';
 const MAX_PHOTO_SIDE = 1600;
 const JPEG_QUALITY = 0.8;
 
+/** Lo mínimo que necesita el subidor; el picker no siempre entrega nombre ni tipo. */
+export interface PickedPhoto {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * El nombre nunca se deriva de la URI: en iOS puede ser `ph://...` sin
+ * extensión y RN no envía el multipart. El backend detecta el formato real.
+ */
+export function photoFromPicker(asset: {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+}): PickedPhoto {
+  return {
+    uri: asset.uri,
+    name: asset.fileName || 'foto.jpg',
+    type: asset.mimeType || 'image/jpeg',
+  };
+}
+
 /** Motivo visible para el usuario cuando la subida de la foto falla. */
 export function photoUploadErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {

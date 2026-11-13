@@ -59,7 +59,10 @@ import {
   formatChileanAmount,
   isoDateToDisplay,
 } from '../../../src/utils/format';
-import { photoUploadErrorMessage } from '../../../src/utils/photo';
+import {
+  photoFromPicker,
+  photoUploadErrorMessage,
+} from '../../../src/utils/photo';
 
 const DELETE_WARNING =
   'Se eliminará el vehículo y todo su historial. Esta acción no se puede deshacer.';
@@ -419,11 +422,7 @@ export default function VehicleDetailScreen() {
     setPhotoUploading(true);
 
     try {
-      await uploadVehiclePhoto(vehicle.id, {
-        uri: asset.uri,
-        name: asset.fileName || 'foto.jpg',
-        type: asset.mimeType || 'image/jpeg',
-      });
+      await uploadVehiclePhoto(vehicle.id, photoFromPicker(asset));
       setPhotoFailed(false);
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
       setFlash('Foto actualizada');

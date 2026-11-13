@@ -49,7 +49,10 @@ import {
   formatChileanAmount,
   parseAmount,
 } from '../../src/utils/format';
-import { photoUploadErrorMessage } from '../../src/utils/photo';
+import {
+  photoFromPicker,
+  photoUploadErrorMessage,
+} from '../../src/utils/photo';
 import {
   LICENSE_PLATE_MESSAGE,
   isValidLicensePlate,
@@ -163,6 +166,9 @@ export default function NewVehicleScreen() {
   const { scrollViewRef, trackField, scrollToFirst } = useFormScroll();
   const [photo, setPhoto] = useState<LocalPhoto | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [createdVehicleId, setCreatedVehicleId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [vinCharsVisible, setVinCharsVisible] = useState(false);
   const [plateCharsVisible, setPlateCharsVisible] = useState(false);
   const [autofilledVin, setAutofilledVin] = useState<string | null>(null);
@@ -334,13 +340,8 @@ export default function NewVehicleScreen() {
       }
 
       const asset = result.assets[0];
-      const extension = asset.uri.split('.').pop() || 'jpg';
 
-      setPhoto({
-        uri: asset.uri,
-        name: asset.fileName || `foto.${extension}`,
-        type: asset.mimeType || 'image/jpeg',
-      });
+      setPhoto(photoFromPicker(asset));
     } catch {
       Alert.alert('No se pudo abrir la galería', 'Intenta nuevamente.');
     }
@@ -355,8 +356,21 @@ export default function NewVehicleScreen() {
     router.replace('/');
   };
 
+  const finishCreate = async (
+    flash = 'Vehículo registrado',
+    flashTone: 'success' | 'error' = 'success',
+  ) => {
+    await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+    router.replace({ pathname: '/', params: { flash, flashTone } });
+  };
+
   const handleCancel = () => {
-    if (isSubmitting) {
+    if (createdVehicleId) {
+      void finishCreate('Vehículo registrado sin foto', 'error');
+      return;
+    }
+
+    if (isSubmitting || uploadingPhoto) {
       return;
     }
 
@@ -383,6 +397,37 @@ export default function NewVehicleScreen() {
     }
   };
 
+  /** Sube la foto y solo navega cuando termina; si falla, deja reintentar. */
+  const uploadPhoto = async (vehicleId: string) => {
+    if (!photo) {
+      await finishCreate();
+      return;
+    }
+
+    setPhotoError(null);
+    setUploadingPhoto(true);
+
+    try {
+      await uploadVehiclePhoto(vehicleId, photo);
+      await finishCreate();
+    } catch (error) {
+      if (__DEV__) {
+        console.warn(
+          '[photo] subida fallida',
+          error instanceof ApiError
+            ? `status=${error.status} ${error.message}`
+            : error,
+        );
+      }
+
+      setPhotoError(
+        `El vehículo se guardó, pero no se pudo subir la foto: ${photoUploadErrorMessage(error)}`,
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     setGeneralError(null);
 
@@ -396,20 +441,8 @@ export default function NewVehicleScreen() {
         currentMileage: parseAmount(values.currentMileage),
       });
 
-      let flash = 'Vehículo registrado';
-      let flashTone: 'success' | 'error' = 'success';
-
-      if (photo) {
-        try {
-          await uploadVehiclePhoto(vehicle.id, photo);
-        } catch (error) {
-          flash = `El vehículo se guardó, pero no se pudo subir la foto: ${photoUploadErrorMessage(error)}`;
-          flashTone = 'error';
-        }
-      }
-
-      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
-      router.replace({ pathname: '/', params: { flash, flashTone } });
+      setCreatedVehicleId(vehicle.id);
+      await uploadPhoto(vehicle.id);
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 409) {
@@ -449,10 +482,15 @@ export default function NewVehicleScreen() {
 
   const footer = (
     <FormFooter
-      loading={isSubmitting}
+      cancelLabel={createdVehicleId ? 'Continuar sin foto' : 'Cancelar'}
+      loading={isSubmitting || uploadingPhoto}
       onCancel={handleCancel}
-      onSubmit={() => void handleSubmit(onSubmit, onInvalid)()}
-      submitLabel="Guardar Vehículo"
+      onSubmit={
+        createdVehicleId
+          ? () => void uploadPhoto(createdVehicleId)
+          : () => void handleSubmit(onSubmit, onInvalid)()
+      }
+      submitLabel={createdVehicleId ? 'Reintentar foto' : 'Guardar Vehículo'}
     />
   );
 
@@ -663,6 +701,8 @@ export default function NewVehicleScreen() {
               )}
             />
           </View>
+
+          <MessageBanner message={photoError} tone="error" />
 
           <View style={styles.photoField}>
             <Text style={styles.photoLabel}>Subir Foto del Vehículo</Text>

@@ -66,6 +66,7 @@ import {
 const MIN_YEAR = 1950;
 const MAX_YEAR = new Date().getFullYear() + 1;
 const MAX_MILEAGE = 2_000_000;
+const PREVIEW_MAX_WIDTH = 480;
 
 const VIN_HELP = 'Si lo ingresas, completamos marca, modelo y año';
 const VIN_LENGTH_MESSAGE = 'El VIN debe tener 17 caracteres';
@@ -713,8 +714,13 @@ export default function NewVehicleScreen() {
                   accessibilityLabel="Cambiar foto"
                   accessibilityRole="button"
                   onPress={pickPhoto}
+                  style={styles.photoFrame}
                 >
-                  <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                  <Image
+                    resizeMode="cover"
+                    source={{ uri: photo.uri }}
+                    style={styles.photoImage}
+                  />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Quitar foto"
@@ -722,6 +728,11 @@ export default function NewVehicleScreen() {
                   onPress={() => setPhoto(null)}
                   style={styles.removePhotoButton}
                 >
+                  <Icon
+                    color={colors.primary}
+                    name="trash-outline"
+                    size={20}
+                  />
                   <Text style={styles.removePhotoText}>Quitar foto</Text>
                 </Pressable>
               </View>
@@ -835,20 +846,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  photoImage: {
+  photoFrame: {
+    alignSelf: 'center',
+    aspectRatio: 16 / 9,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    height: layout.heroPhotoHeight,
+    maxWidth: PREVIEW_MAX_WIDTH,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  photoImage: {
+    height: '100%',
     width: '100%',
   },
   removePhotoButton: {
+    alignItems: 'center',
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    borderWidth: layout.borderWidth,
+    flexDirection: 'row',
+    gap: spacing.sm,
     justifyContent: 'center',
     minHeight: layout.touchTarget,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
   removePhotoText: {
-    color: colors.danger,
+    color: colors.primary,
     fontSize: fontSizes.md,
     fontWeight: '600',
   },

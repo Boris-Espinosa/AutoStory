@@ -7,7 +7,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Fab } from '../../components/ui/Fab';
 import { ListRow } from '../../components/ui/ListRow';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
@@ -27,7 +26,7 @@ import {
 
 export interface AppointmentsListProps {
   vehicleId?: string;
-  showFab?: boolean;
+  showAction?: boolean;
 }
 
 function AppointmentRow({
@@ -108,7 +107,7 @@ function AppointmentGroup({
 /** Lista compartida entre la sección Citas y la pestaña Citas del vehículo. */
 export function AppointmentsList({
   vehicleId,
-  showFab = true,
+  showAction = true,
 }: AppointmentsListProps) {
   const upcomingQuery = useAppointments('upcoming', vehicleId);
   const overdueQuery = useAppointments('overdue', vehicleId);
@@ -170,6 +169,14 @@ export function AppointmentsList({
         />
       ) : null}
 
+      {showAction && (upcoming.length > 0 || overdue.length > 0) ? (
+        <Button
+          label="Programar cita"
+          onPress={openNewAppointment}
+          style={size === 'compact' ? undefined : styles.naturalButton}
+        />
+      ) : null}
+
       {upcoming.length > 0 ? (
         <View style={styles.group}>
           <SectionHeader title="Próximas" />
@@ -228,15 +235,6 @@ export function AppointmentsList({
           </>
         )
       ) : null}
-
-      {showFab ? (
-        <Fab
-          accessibilityLabel="Programar cita"
-          bottomOffset={spacing.xxl}
-          label={size === 'expanded' ? 'Programar cita' : undefined}
-          onPress={openNewAppointment}
-        />
-      ) : null}
     </View>
   );
 }
@@ -244,7 +242,6 @@ export function AppointmentsList({
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
-    paddingBottom: layout.fabSize + spacing.xxl,
   },
   group: {
     gap: spacing.sm,

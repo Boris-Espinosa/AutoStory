@@ -7,7 +7,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Fab } from '../../components/ui/Fab';
 import { ListRow } from '../../components/ui/ListRow';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { colors, layout, spacing, typography } from '../../theme';
@@ -77,6 +76,12 @@ export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
         />
       ) : (
         <>
+          <Button
+            label="Registrar mantención"
+            onPress={openNewMaintenance}
+            style={size === 'compact' ? undefined : styles.naturalButton}
+          />
+
           <Card style={styles.listCard}>
             {items.map((maintenance, index) => {
               const registeredBy = maintenance.registeredBy;
@@ -125,13 +130,6 @@ export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
               variant="secondary"
             />
           ) : null}
-
-          <Fab
-            accessibilityLabel="Registrar mantención"
-            bottomOffset={spacing.xxl}
-            label={size === 'expanded' ? 'Mantención' : undefined}
-            onPress={openNewMaintenance}
-          />
         </>
       )}
     </View>
@@ -141,7 +139,6 @@ export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
-    paddingBottom: layout.fabSize + spacing.xxl,
   },
   centered: {
     alignItems: 'center',

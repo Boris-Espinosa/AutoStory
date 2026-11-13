@@ -7,7 +7,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Fab } from '../../components/ui/Fab';
 import { ListRow } from '../../components/ui/ListRow';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { colors, layout, spacing, typography } from '../../theme';
@@ -73,6 +72,12 @@ export function PartsTab({ vehicleId }: { vehicleId: string }) {
         />
       ) : (
         <>
+          <Button
+            label="Añadir repuesto"
+            onPress={openNewPart}
+            style={size === 'compact' ? undefined : styles.naturalButton}
+          />
+
           <Card style={styles.listCard}>
             {parts.map((part, index) => {
               const maintenanceDate = part.maintenanceId
@@ -104,13 +109,6 @@ export function PartsTab({ vehicleId }: { vehicleId: string }) {
               );
             })}
           </Card>
-
-          <Fab
-            accessibilityLabel="Añadir repuesto"
-            bottomOffset={spacing.xxl}
-            label={size === 'expanded' ? 'Repuesto' : undefined}
-            onPress={openNewPart}
-          />
         </>
       )}
     </View>
@@ -120,7 +118,6 @@ export function PartsTab({ vehicleId }: { vehicleId: string }) {
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
-    paddingBottom: layout.fabSize + spacing.xxl,
   },
   centered: {
     alignItems: 'center',
@@ -139,6 +136,10 @@ const styles = StyleSheet.create({
   },
   listCard: {
     paddingVertical: spacing.none,
+  },
+  naturalButton: {
+    alignSelf: 'center',
+    maxWidth: layout.buttonMaxWidth,
   },
   rowBorder: {
     borderTopColor: colors.borderSubtle,

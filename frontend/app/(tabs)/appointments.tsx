@@ -104,7 +104,7 @@ export default function AppointmentsScreen() {
             />
           ) : null}
 
-          {hasVehicles ? <AppointmentsList showFab={false} /> : null}
+          {hasVehicles ? <AppointmentsList /> : null}
         </View>
       </ScrollView>
 

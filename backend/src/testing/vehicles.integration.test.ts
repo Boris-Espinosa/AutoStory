@@ -602,10 +602,10 @@ describe('POST /vehicles/:vehicleId/photo', () => {
     });
   });
 
-  it('traduce el límite de tamaño de Multer a 400', async () => {
+  it('traduce el límite de tamaño de Multer a 413', async () => {
     const vehicle = await createVehicleAs('user-1');
     const before = await countUploadedFiles();
-    const tooLarge = Buffer.alloc(5 * 1024 * 1024 + 1);
+    const tooLarge = Buffer.alloc(8 * 1024 * 1024 + 1);
 
     const response = await uploadPhoto(
       'user-1',
@@ -614,9 +614,9 @@ describe('POST /vehicles/:vehicleId/photo', () => {
       tooLarge,
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(413);
     expect(response.body).toEqual({
-      message: 'La foto no puede superar los 5 MB.',
+      message: 'La foto supera 8 MB.',
     });
     expect(await countUploadedFiles()).toBe(before);
   });

@@ -12,15 +12,13 @@ export function photoUploadErrorMessage(error: unknown): string {
   const message =
     error.status === 0
       ? 'No pudimos conectar con el servidor'
-      : error.status === 400
-        ? 'Formato no válido o foto muy pesada'
-        : error.status === 401
-          ? 'Tu sesión expiró'
-          : error.status === 404
-            ? 'No encontramos el vehículo'
-            : error.status === 413
-              ? 'La foto es muy pesada'
-              : 'No se pudo subir la foto';
+      : error.status === 401
+        ? 'Tu sesión expiró'
+        : error.status === 404
+          ? 'No encontramos el vehículo'
+          : error.status === 413
+            ? 'La foto supera 8 MB'
+            : error.message || 'No se pudo subir la foto';
 
   return __DEV__ ? `${message} (HTTP ${error.status})` : message;
 }

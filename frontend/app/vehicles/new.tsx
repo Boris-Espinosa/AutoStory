@@ -325,7 +325,8 @@ export default function NewVehicleScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 0.8,
+        quality: 0.7,
+        exif: false,
       });
 
       if (result.canceled || result.assets.length === 0) {

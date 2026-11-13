@@ -79,24 +79,28 @@ export async function uploadVehiclePhoto(
   vehicleId: string,
   photo: LocalPhoto,
 ): Promise<{ photoUrl: string }> {
-  const form = new FormData();
+  const buildForm = async (): Promise<FormData> => {
+    const form = new FormData();
 
-  if (Platform.OS === 'web') {
-    // En web el selector entrega una URL `blob:` o `data:`; el canvas la
-    // reduce a JPEG y, si eso falla, se sube el blob original.
-    const blob = await preparePhotoBlob(photo.uri);
-    form.append('photo', blob, 'foto.jpg');
-  } else {
-    form.append('photo', photo as unknown as Blob);
-  }
+    if (Platform.OS === 'web') {
+      // En web el selector entrega una URL `blob:` o `data:`; el canvas la
+      // reduce a JPEG y, si eso falla, se sube el blob original.
+      const blob = await preparePhotoBlob(photo.uri);
+      form.append('photo', blob, 'foto.jpg');
+    } else {
+      form.append('photo', photo as unknown as Blob);
+    }
+
+    return form;
+  };
 
   return apiRequest<{ photoUrl: string }>(
     `/vehicles/${vehicleId}/photo`,
     {
       method: 'POST',
-      body: form,
+      body: await buildForm(),
     },
-    { timeoutMs: UPLOAD_TIMEOUT_MS, retries: 0 },
+    { timeoutMs: UPLOAD_TIMEOUT_MS, retries: 0, retryBody: buildForm },
   );
 }
 

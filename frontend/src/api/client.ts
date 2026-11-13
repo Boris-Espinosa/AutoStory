@@ -8,7 +8,7 @@ export const API_URL_CONFIGURED = API_BASE_URL.length > 0;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Las subidas necesitan más margen: una foto tarda en salir de un celular. */
-export const UPLOAD_TIMEOUT_MS = 120_000;
+export const UPLOAD_TIMEOUT_MS = 60_000;
 
 /** Esperas entre reintentos cuando el servidor dormido no responde. */
 const RETRY_DELAYS_MS = [2_000, 4_000, 8_000];
@@ -17,6 +17,8 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** Reintentos por fallo de red. Una subida no se reenvía nunca. */
   retries?: number;
+  /** Un FormData ya enviado no se puede reutilizar: se reconstruye. */
+  retryBody?: () => BodyInit | Promise<BodyInit>;
 }
 
 export const SERVER_WAKING_MESSAGE =
@@ -214,7 +216,14 @@ export async function apiRequest<T>(
 
     if (freshToken) {
       headers.Authorization = `Bearer ${freshToken}`;
-      response = await fetchApi(path, init, headers, options);
+      response = await fetchApi(
+        path,
+        options.retryBody
+          ? { ...init, body: await options.retryBody() }
+          : init,
+        headers,
+        options,
+      );
     }
 
     if (response.status === 401) {

@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { ErrorRequestHandler } from 'express';
 import multer from 'multer';
 import { env } from '../config/env';
+import { HttpError } from '../common/http-error';
 import { error as logError } from '../common/logger';
 import {
   ImageExtension,
@@ -15,7 +16,9 @@ export {
   VEHICLE_PHOTO_URL_PREFIX,
 } from '../storage/storage.service';
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true }).catch(() => undefined);
 
@@ -30,6 +33,22 @@ export const vehiclePhotoUpload = multer({
             callback(null, `${randomUUID()}.tmp`),
         }),
   limits: { fileSize: MAX_PHOTO_BYTES },
+  fileFilter: (_req, file, callback) => {
+    // Algunos móviles envían octet-stream o nada: ahí decide la firma real.
+    const type = file.mimetype;
+
+    if (!type || type === 'application/octet-stream' || ALLOWED_PHOTO_TYPES.has(type)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(
+      new HttpError(
+        400,
+        'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
+      ),
+    );
+  },
 });
 
 export const photoUploadErrors: ErrorRequestHandler = (
@@ -40,10 +59,10 @@ export const photoUploadErrors: ErrorRequestHandler = (
 ) => {
   if (error instanceof multer.MulterError) {
     logPhotoUploadFailure(error, req.file);
-    res.status(400).json({
+    res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({
       message:
         error.code === 'LIMIT_FILE_SIZE'
-          ? 'La foto no puede superar los 5 MB.'
+          ? 'La foto supera 8 MB.'
           : 'No se pudo subir la foto.',
     });
     return;

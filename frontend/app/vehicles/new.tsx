@@ -49,6 +49,7 @@ import {
   formatChileanAmount,
   parseAmount,
 } from '../../src/utils/format';
+import { photoUploadErrorMessage } from '../../src/utils/photo';
 import {
   LICENSE_PLATE_MESSAGE,
   isValidLicensePlate,
@@ -332,12 +333,12 @@ export default function NewVehicleScreen() {
       }
 
       const asset = result.assets[0];
-      const extension = asset.uri.split('.').pop() ?? 'jpg';
+      const extension = asset.uri.split('.').pop() || 'jpg';
 
       setPhoto({
         uri: asset.uri,
-        name: asset.fileName ?? `foto.${extension}`,
-        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName || `foto.${extension}`,
+        type: asset.mimeType || 'image/jpeg',
       });
     } catch {
       Alert.alert('No se pudo abrir la galería', 'Intenta nuevamente.');
@@ -400,8 +401,8 @@ export default function NewVehicleScreen() {
       if (photo) {
         try {
           await uploadVehiclePhoto(vehicle.id, photo);
-        } catch {
-          flash = 'El vehículo se guardó, pero no se pudo subir la foto';
+        } catch (error) {
+          flash = `El vehículo se guardó, pero no se pudo subir la foto: ${photoUploadErrorMessage(error)}`;
           flashTone = 'error';
         }
       }

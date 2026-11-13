@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import { createAuthMiddleware } from './auth/auth.middleware';
 import { Clock, systemClock } from './common/clock';
 import { errorHandler, notFoundHandler } from './common/error-handler';
-import { error as logError } from './common/logger';
+import { error as logError, info as logInfo } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { Appointment } from './entities/Appointment';
@@ -131,6 +131,20 @@ export function createApp(
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+
+  // Una línea por petición: método, ruta sin query, estado y duración.
+  app.use((req, res, next) => {
+    const startedAt = Date.now();
+
+    res.on('finish', () => {
+      logInfo(
+        `${req.method} ${req.path} ${res.statusCode} ${Date.now() - startedAt}ms`,
+      );
+    });
+
+    next();
+  });
+
   app.use(express.json({ limit: '100kb' }));
 
   if (env.auth.mode === 'clerk') {

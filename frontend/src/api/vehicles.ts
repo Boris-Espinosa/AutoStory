@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Platform } from 'react-native';
-import { apiRequest } from './client';
+import { apiRequest, UPLOAD_TIMEOUT_MS } from './client';
+import { preparePhotoBlob } from '../utils/photo';
 
 export type VehicleRole = 'OWNER' | 'GUEST';
 
@@ -81,16 +82,22 @@ export async function uploadVehiclePhoto(
   const form = new FormData();
 
   if (Platform.OS === 'web') {
-    const blob = await fetch(photo.uri).then((response) => response.blob());
-    form.append('photo', blob, photo.name);
+    // En web el selector entrega una URL `blob:` o `data:`; el canvas la
+    // reduce a JPEG y, si eso falla, se sube el blob original.
+    const blob = await preparePhotoBlob(photo.uri);
+    form.append('photo', blob, 'foto.jpg');
   } else {
     form.append('photo', photo as unknown as Blob);
   }
 
-  return apiRequest<{ photoUrl: string }>(`/vehicles/${vehicleId}/photo`, {
-    method: 'POST',
-    body: form,
-  });
+  return apiRequest<{ photoUrl: string }>(
+    `/vehicles/${vehicleId}/photo`,
+    {
+      method: 'POST',
+      body: form,
+    },
+    { timeoutMs: UPLOAD_TIMEOUT_MS, retries: 0 },
+  );
 }
 
 export function useVehicles() {

@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { ErrorRequestHandler } from 'express';
 import multer from 'multer';
 import { env } from '../config/env';
+import { error as logError } from '../common/logger';
 import {
   ImageExtension,
   VEHICLE_UPLOADS_DIR,
@@ -33,11 +34,12 @@ export const vehiclePhotoUpload = multer({
 
 export const photoUploadErrors: ErrorRequestHandler = (
   error,
-  _req,
+  req,
   res,
   next,
 ) => {
   if (error instanceof multer.MulterError) {
+    logPhotoUploadFailure(error, req.file);
     res.status(400).json({
       message:
         error.code === 'LIMIT_FILE_SIZE'
@@ -49,6 +51,27 @@ export const photoUploadErrors: ErrorRequestHandler = (
 
   next(error);
 };
+
+/** Registra el fallo sin el nombre del archivo ni cabeceras del cliente. */
+export function logPhotoUploadFailure(
+  error: unknown,
+  file?: Express.Multer.File,
+): void {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code: unknown }).code)
+      : '-';
+
+  logError(
+    'Fallo al subir la foto del vehículo.',
+    [
+      error instanceof Error ? error.name : 'Error',
+      `code=${code}`,
+      `size=${file?.size ?? '-'}`,
+      `mime=${file?.mimetype || '-'}`,
+    ].join(' '),
+  );
+}
 
 /** Detecta el tipo por la firma real del archivo, no por su nombre. */
 export async function detectImageExtension(

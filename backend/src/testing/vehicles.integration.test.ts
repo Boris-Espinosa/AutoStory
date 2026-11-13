@@ -96,6 +96,9 @@ function vehiclePayload(
 const PNG_BYTES = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00,
 ]);
+const JPEG_BYTES = Buffer.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00,
+]);
 const TXT_BYTES = Buffer.from('no soy una imagen');
 
 const createdPhotos: string[] = [];
@@ -113,18 +116,49 @@ async function countUploadedFiles(): Promise<number> {
 }
 
 async function uploadPhoto(
-  userId: string,
+  userId: string | undefined,
   vehicleId: string,
   fileName: string,
   bytes: Buffer,
+  contentType?: string,
 ): Promise<ApiResponse> {
   const form = new FormData();
-  form.append('photo', new Blob([bytes]), fileName);
+  form.append(
+    'photo',
+    new Blob([bytes], contentType ? { type: contentType } : undefined),
+    fileName,
+  );
+
+  const headers: Record<string, string> = {};
+
+  if (userId) {
+    headers['x-user-id'] = userId;
+  }
 
   const response = await fetch(`${baseUrl}/vehicles/${vehicleId}/photo`, {
     method: 'POST',
-    headers: { 'x-user-id': userId },
+    headers,
     body: form,
+  });
+  const text = await response.text();
+
+  return { status: response.status, body: text ? JSON.parse(text) : {} };
+}
+
+async function uploadWithoutFile(
+  userId: string | undefined,
+  vehicleId: string,
+): Promise<ApiResponse> {
+  const headers: Record<string, string> = {};
+
+  if (userId) {
+    headers['x-user-id'] = userId;
+  }
+
+  const response = await fetch(`${baseUrl}/vehicles/${vehicleId}/photo`, {
+    method: 'POST',
+    headers,
+    body: new FormData(),
   });
   const text = await response.text();
 
@@ -430,6 +464,75 @@ describe('GET /vehicles/brands', () => {
 });
 
 describe('POST /vehicles/:vehicleId/photo', () => {
+  it('acepta un jpeg válido', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.jpg',
+      JPEG_BYTES,
+      'image/jpeg',
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.photoUrl).toMatch(/^\/uploads\/vehicles\/[0-9a-f-]{36}\.jpg$/);
+    createdPhotos.push(response.body.photoUrl as string);
+  });
+
+  it('acepta octet-stream si la firma real es jpeg', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto',
+      JPEG_BYTES,
+      'application/octet-stream',
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.photoUrl).toMatch(/\.jpg$/);
+    createdPhotos.push(response.body.photoUrl as string);
+  });
+
+  it('acepta un tipo MIME vacío si la firma real es jpeg', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto',
+      JPEG_BYTES,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.photoUrl).toMatch(/\.jpg$/);
+    createdPhotos.push(response.body.photoUrl as string);
+  });
+
+  it('responde 400 cuando no llega archivo', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await uploadWithoutFile('user-1', vehicle.id);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ message: 'La foto es obligatoria.' });
+  });
+
+  it('responde 401 sin autenticación', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await uploadPhoto(
+      undefined,
+      vehicle.id,
+      'foto.jpg',
+      JPEG_BYTES,
+    );
+
+    expect(response.status).toBe(401);
+  });
+
   it('responde 403 a un invitado y no escribe archivos', async () => {
     const vehicle = await createVehicleAs('user-1');
     await dataSource.getRepository(UserVehicle).save({

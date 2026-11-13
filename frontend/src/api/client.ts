@@ -7,8 +7,17 @@ export const API_URL_CONFIGURED = API_BASE_URL.length > 0;
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/** Las subidas necesitan más margen: una foto tarda en salir de un celular. */
+export const UPLOAD_TIMEOUT_MS = 120_000;
+
 /** Esperas entre reintentos cuando el servidor dormido no responde. */
 const RETRY_DELAYS_MS = [2_000, 4_000, 8_000];
+
+export interface RequestOptions {
+  timeoutMs?: number;
+  /** Reintentos por fallo de red. Una subida no se reenvía nunca. */
+  retries?: number;
+}
 
 export const SERVER_WAKING_MESSAGE =
   'El servidor está iniciando, puede tardar hasta un minuto';
@@ -114,9 +123,13 @@ async function requestToken(options: TokenRequestOptions = {}): Promise<string |
   return tokenProvider ? tokenProvider(options) : null;
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(url, { ...init, signal: controller.signal });
@@ -129,7 +142,11 @@ async function fetchApi(
   path: string,
   init: RequestInit,
   headers: Record<string, string>,
+  options: RequestOptions = {},
 ): Promise<Response> {
+  const retries = options.retries ?? RETRY_DELAYS_MS.length;
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+
   for (let attempt = 0; ; attempt += 1) {
     if (attempt > 0) {
       // Plan gratuito de Render: el servidor dormido tarda en despertar.
@@ -138,15 +155,19 @@ async function fetchApi(
     }
 
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
-        ...init,
-        headers,
-      });
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}${path}`,
+        {
+          ...init,
+          headers,
+        },
+        timeoutMs,
+      );
 
       notifyServerWaking(false);
       return response;
     } catch {
-      if (attempt >= RETRY_DELAYS_MS.length) {
+      if (attempt >= retries) {
         break;
       }
     }
@@ -164,7 +185,11 @@ async function fetchApi(
   );
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options: RequestOptions = {},
+): Promise<T> {
   const headers: Record<string, string> = {
     ...(init.headers as Record<string, string> | undefined),
   };
@@ -181,7 +206,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.Authorization = `Bearer ${token}`;
   }
 
-  let response = await fetchApi(path, init, headers);
+  let response = await fetchApi(path, init, headers, options);
 
   // Token vencido: se pide otro saltando la caché y se reintenta una sola vez.
   if (response.status === 401 && token) {
@@ -189,7 +214,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
     if (freshToken) {
       headers.Authorization = `Bearer ${freshToken}`;
-      response = await fetchApi(path, init, headers);
+      response = await fetchApi(path, init, headers, options);
     }
 
     if (response.status === 401) {

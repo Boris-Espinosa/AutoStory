@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import Head from 'expo-router/head';
 import { useEffect, useState } from 'react';
@@ -19,6 +20,7 @@ import {
 } from '../../../src/api/maintenances';
 import {
   Vehicle,
+  uploadVehiclePhoto,
   useDeleteVehicle,
   useVehicles,
   vehiclesQueryKey,
@@ -57,6 +59,7 @@ import {
   formatChileanAmount,
   isoDateToDisplay,
 } from '../../../src/utils/format';
+import { photoUploadErrorMessage } from '../../../src/utils/photo';
 
 const DELETE_WARNING =
   'Se eliminará el vehículo y todo su historial. Esta acción no se puede deshacer.';
@@ -326,6 +329,8 @@ export default function VehicleDetailScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const flashParam = Array.isArray(params.flash) ? params.flash[0] : params.flash;
 
@@ -383,6 +388,50 @@ export default function VehicleDetailScreen() {
   };
 
   const photoUri = vehicle?.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
+
+  const retryPhoto = async () => {
+    if (!vehicle) {
+      return;
+    }
+
+    setPhotoError(null);
+
+    let asset: ImagePicker.ImagePickerAsset;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled || result.assets.length === 0) {
+        return;
+      }
+
+      asset = result.assets[0];
+    } catch {
+      setPhotoError('No se pudo abrir la galería');
+      return;
+    }
+
+    setPhotoUploading(true);
+
+    try {
+      await uploadVehiclePhoto(vehicle.id, {
+        uri: asset.uri,
+        name: asset.fileName || 'foto.jpg',
+        type: asset.mimeType || 'image/jpeg',
+      });
+      setPhotoFailed(false);
+      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      setFlash('Foto actualizada');
+    } catch (error) {
+      setPhotoError(photoUploadErrorMessage(error));
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   return (
     <Screen maxWidth={layout.detailMaxWidth} scroll>
@@ -485,6 +534,18 @@ export default function VehicleDetailScreen() {
             </View>
           </View>
 
+          {vehicle.role === 'OWNER' && (!photoUri || photoFailed) ? (
+            <Button
+              label="Subir foto"
+              loading={photoUploading}
+              onPress={() => void retryPhoto()}
+              style={styles.photoAction}
+              variant="secondary"
+            />
+          ) : null}
+
+          <MessageBanner message={photoError} tone="error" />
+
           <SegmentedTabs
             activeKey={activeTab}
             items={TABS}
@@ -568,6 +629,10 @@ const styles = StyleSheet.create({
   heroInfo: {
     flex: 1,
     gap: spacing.sm,
+  },
+  photoAction: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
   },
   heroTitle: {
     ...typography.title,

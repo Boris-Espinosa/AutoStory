@@ -30,6 +30,7 @@ import { PartsService } from '../parts/parts.service';
 import { BRANDS } from './brands';
 import {
   detectImageExtension,
+  logPhotoUploadFailure,
   photoUploadErrors,
   vehiclePhotoUpload,
 } from './photo-upload';
@@ -280,20 +281,26 @@ export function createVehiclesRouter(
     photoUploadErrors,
     asyncHandler(async (req, res) => {
       if (!req.file) {
-        throw new HttpError(400, 'La foto es obligatoria.');
+        const error = new HttpError(400, 'La foto es obligatoria.');
+        logPhotoUploadFailure(error, req.file);
+        throw error;
       }
 
       const source: Buffer | string = req.file.buffer ?? req.file.path;
+      // El tipo MIME (vacío o application/octet-stream) no decide nada: la
+      // firma real del archivo es la que valida el formato.
       const extension = await detectImageExtension(source);
 
       if (!extension) {
         if (typeof source === 'string') {
           await fs.rm(source, { force: true });
         }
-        throw new HttpError(
+        const error = new HttpError(
           400,
           'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
         );
+        logPhotoUploadFailure(error, req.file);
+        throw error;
       }
 
       let photoUrl: string;
@@ -301,10 +308,7 @@ export function createVehiclesRouter(
       try {
         photoUrl = await storage.save(source, extension);
       } catch (error) {
-        logError(
-          'No se pudo guardar la foto del vehículo.',
-          error instanceof Error ? error.name : undefined,
-        );
+        logPhotoUploadFailure(error, req.file);
         throw new HttpError(500, 'No se pudo guardar la foto.');
       }
 
@@ -315,6 +319,7 @@ export function createVehiclesRouter(
       } catch (error) {
         // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
         await storage.remove(photoUrl).catch(() => undefined);
+        logPhotoUploadFailure(error, req.file);
         throw error;
       }
 

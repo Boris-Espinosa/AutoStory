@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 import { apiRequest, UPLOAD_TIMEOUT_MS } from './client';
-import { preparePhotoBlob } from '../utils/photo';
+import { preparePhoto } from '../utils/photo';
 
 export type VehicleRole = 'OWNER' | 'GUEST';
 
@@ -94,15 +94,20 @@ export async function uploadVehiclePhoto(
   photo: LocalPhoto,
 ): Promise<{ photoUrl: string }> {
   const buildForm = async (): Promise<FormData> => {
+    // Se comprime antes de armar el multipart: si falla, la pantalla avisa
+    // y deja reintentar o continuar sin foto; nunca se sube el original.
+    const ready = await preparePhoto(photo);
     const form = new FormData();
 
     if (Platform.OS === 'web') {
-      // En web el selector entrega una URL `blob:` o `data:`; el canvas la
-      // reduce a JPEG y, si eso falla, se sube el blob original.
-      const blob = await preparePhotoBlob(photo.uri);
-      form.append('photo', blob, 'foto.jpg');
+      const blob = await fetch(ready.uri).then((response) => response.blob());
+      form.append(
+        'photo',
+        new Blob([blob], { type: 'image/jpeg' }),
+        ready.name,
+      );
     } else {
-      form.append('photo', photo as unknown as Blob);
+      form.append('photo', ready as unknown as Blob);
     }
 
     return form;

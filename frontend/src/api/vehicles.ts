@@ -43,6 +43,7 @@ export interface LocalPhoto {
   uri: string;
   name: string;
   type: string;
+  blob?: Blob;
 }
 
 export const vehiclesQueryKey = ['vehicles'] as const;
@@ -100,12 +101,8 @@ export async function uploadVehiclePhoto(
     const form = new FormData();
 
     if (Platform.OS === 'web') {
-      const blob = await fetch(ready.uri).then((response) => response.blob());
-      form.append(
-        'photo',
-        new Blob([blob], { type: 'image/jpeg' }),
-        ready.name,
-      );
+      // El Blob ya está en memoria; nunca se vuelve a leer el File del picker.
+      form.append('photo', ready.blob as Blob, ready.name);
     } else {
       form.append('photo', ready as unknown as Blob);
     }

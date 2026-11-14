@@ -60,8 +60,8 @@ import {
   isoDateToDisplay,
 } from '../../../src/utils/format';
 import {
-  photoFromPicker,
   photoUploadErrorMessage,
+  preparePickedPhoto,
 } from '../../../src/utils/photo';
 
 const DELETE_WARNING =
@@ -422,7 +422,10 @@ export default function VehicleDetailScreen() {
     setPhotoUploading(true);
 
     try {
-      await uploadVehiclePhoto(vehicle.id, photoFromPicker(asset));
+      await uploadVehiclePhoto(
+        vehicle.id,
+        await preparePickedPhoto(asset),
+      );
       setPhotoFailed(false);
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
       setFlash('Foto actualizada');

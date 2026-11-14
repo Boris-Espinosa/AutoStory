@@ -95,7 +95,6 @@ export const layout = {
   detailMaxWidth: 900,
   formMaxWidth: 640,
   sidebarWidth: 220,
-  bottomBarHeight: 64,
   avatarSize: 56,
   photoSize: 72,
   iconCircleSize: 64,

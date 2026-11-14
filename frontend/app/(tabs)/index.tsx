@@ -156,7 +156,12 @@ export default function VehiclesScreen() {
           ) : undefined
         }
       >
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            hasVehicles && !isWide && styles.containerWithFab,
+          ]}
+        >
           <View style={styles.header}>
             <View style={styles.titleGroup}>
               <Text accessibilityRole="header" style={styles.title}>
@@ -223,7 +228,7 @@ export default function VehiclesScreen() {
       {hasVehicles && !isWide ? (
         <Fab
           accessibilityLabel="Registrar vehículo"
-          bottomOffset={layout.bottomBarHeight}
+          bottomOffset={layout.touchTarget + spacing.md}
           onPress={goToNewVehicle}
         />
       ) : null}
@@ -248,6 +253,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     width: '100%',
+  },
+  // Deja libre el alto del boton flotante para que no tape la ultima tarjeta.
+  containerWithFab: {
+    paddingBottom: layout.fabSize + layout.touchTarget + spacing.xxl * 2,
   },
   header: {
     alignItems: 'center',

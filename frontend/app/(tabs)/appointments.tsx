@@ -64,7 +64,7 @@ export default function AppointmentsScreen() {
           ) : undefined
         }
       >
-        <View style={styles.container}>
+        <View style={[styles.container, hasVehicles && styles.containerWithFab]}>
           <View style={styles.header}>
             <Text accessibilityRole="header" style={styles.title}>
               Citas
@@ -111,7 +111,7 @@ export default function AppointmentsScreen() {
       {hasVehicles ? (
         <Fab
           accessibilityLabel="Programar cita"
-          bottomOffset={layout.bottomBarHeight}
+          bottomOffset={layout.touchTarget + spacing.md}
           label={size === 'expanded' ? 'Programar cita' : undefined}
           onPress={openNewAppointment}
         />
@@ -137,6 +137,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     width: '100%',
+  },
+  // Deja libre el alto del boton flotante para que no tape la ultima tarjeta.
+  containerWithFab: {
+    paddingBottom: layout.fabSize + layout.touchTarget + spacing.xxl * 2,
   },
   header: {
     alignItems: 'center',

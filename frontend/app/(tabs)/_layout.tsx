@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import logo from '../../assets/brand/logo.png';
 import { useUnreadCount } from '../../src/api/notifications';
 import { Icon, IconName } from '../../src/components/ui/Icon';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
@@ -47,7 +48,11 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
         },
       ]}
     >
-      <Text style={styles.brand}>AutoStory</Text>
+      <Image
+        accessibilityLabel="AutoStory"
+        source={logo}
+        style={styles.brand}
+      />
 
       {state.routes.map((route, index) => {
         const section = sections.find((item) => item.name === route.name);
@@ -164,11 +169,9 @@ const styles = StyleSheet.create({
     width: layout.sidebarWidth,
   },
   brand: {
-    ...typography.title,
-    color: colors.textPrimary,
-    fontWeight: '800',
+    aspectRatio: layout.brandLogoAspectRatio,
     marginBottom: spacing.lg,
-    paddingHorizontal: spacing.sm,
+    width: layout.sidebarWidth - spacing.xxl,
   },
   sidebarItem: {
     alignItems: 'center',

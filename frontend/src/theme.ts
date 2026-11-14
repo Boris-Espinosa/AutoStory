@@ -97,6 +97,8 @@ export const layout = {
   sidebarWidth: 220,
   avatarSize: 56,
   photoSize: 72,
+  brandLogoWidth: 240,
+  brandLogoAspectRatio: 750 / 192,
   iconCircleSize: 64,
   heroPhotoHeight: 180,
   heroPhotoWideWidth: 240,

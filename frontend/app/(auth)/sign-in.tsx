@@ -10,6 +10,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,6 +18,8 @@ import {
   View,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+
+import logo from '../../assets/brand/logo.png';
 
 import { MessageBanner } from '../../src/components/MessageBanner';
 import { Card } from '../../src/components/ui/Card';
@@ -184,16 +187,12 @@ export default function SignInScreen() {
   return (
     <View style={styles.screen}>
       <Card style={styles.card}>
-        <View style={styles.icon}>
-          <Icon
-            accessibilityLabel="AutoStory"
-            color={colors.primary}
-            name="car-sport-outline"
-            size={fontSizes.hero}
-          />
-        </View>
+        <Image
+          accessibilityLabel="AutoStory"
+          source={logo}
+          style={styles.logo}
+        />
 
-        <Text style={styles.title}>AutoStory</Text>
         <Text style={styles.tagline}>
           Todo el historial de tus vehículos en un solo lugar
         </Text>
@@ -299,20 +298,10 @@ const styles = StyleSheet.create({
     maxWidth: layout.modalMaxWidth,
     width: '100%',
   },
-  icon: {
-    alignItems: 'center',
+  logo: {
     alignSelf: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    height: layout.iconCircleSize,
-    justifyContent: 'center',
-    width: layout.iconCircleSize,
-  },
-  title: {
-    ...typography.title,
-    color: colors.textPrimary,
-    fontWeight: '800',
-    textAlign: 'center',
+    aspectRatio: layout.brandLogoAspectRatio,
+    width: layout.brandLogoWidth,
   },
   tagline: {
     ...typography.body,

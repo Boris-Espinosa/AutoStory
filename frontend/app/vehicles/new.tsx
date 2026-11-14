@@ -181,7 +181,6 @@ export default function NewVehicleScreen() {
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoDebug, setPhotoDebug] = useState<string | null>(null);
   const [createdVehicleId, setCreatedVehicleId] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [vinCharsVisible, setVinCharsVisible] = useState(false);
@@ -472,23 +471,12 @@ export default function NewVehicleScreen() {
     }
 
     setPhotoError(null);
-    setPhotoDebug(null);
     setUploadingPhoto(true);
 
     try {
       await uploadVehiclePhoto(vehicleId, photo);
       await finishCreate();
     } catch (error) {
-      // TEMP-DEBUG: quitar cuando se confirme el arreglo en Android.
-      setPhotoDebug(
-        [
-          `name: ${error instanceof Error ? error.name : typeof error}`,
-          `message: ${error instanceof Error ? error.message : String(error)}`,
-          `status: ${error instanceof ApiError ? error.status : 'sin respuesta'}`,
-          `blob: ${photo.blob ? `${Math.round(photo.blob.size / 1024)} KB ${photo.blob.type}` : 'sin Blob'}`,
-        ].join(' | '),
-      );
-
       if (__DEV__) {
         console.warn(
           '[photo] subida fallida',
@@ -848,9 +836,6 @@ export default function NewVehicleScreen() {
 
           <MessageBanner message={photoError} tone="error" />
 
-          {/* TEMP-DEBUG */}
-          {photoDebug ? <Text style={styles.debug}>{photoDebug}</Text> : null}
-
           <View style={styles.photoField}>
             <Text style={styles.photoLabel}>Subir Foto del Vehículo</Text>
 
@@ -973,10 +958,6 @@ const styles = StyleSheet.create({
     color: colors.textLabel,
     fontSize: fontSizes.md,
     fontWeight: '600',
-  },
-  debug: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.xs,
   },
   photoPicker: {
     alignItems: 'center',

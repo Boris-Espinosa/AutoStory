@@ -711,6 +711,146 @@ describe('POST /vehicles/:vehicleId/photo', () => {
   });
 });
 
+describe('DELETE /vehicles/:vehicleId/photo', () => {
+  it('quita la foto del dueño y borra el archivo', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const uploaded = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.jpg',
+      JPEG_BYTES,
+      'image/jpeg',
+    );
+
+    const response = await api('DELETE', `/vehicles/${vehicle.id}/photo`, {
+      userId: 'user-1',
+    });
+
+    expect(uploaded.status).toBe(200);
+    expect(response.status).toBe(204);
+    expect(
+      (await dataSource.getRepository(Vehicle).findOneByOrFail({ id: vehicle.id }))
+        .photoUrl,
+    ).toBeNull();
+
+    const previousPath = path.join(
+      VEHICLE_UPLOADS_DIR,
+      path.basename(uploaded.body.photoUrl as string),
+    );
+    await expect(fs.stat(previousPath)).rejects.toThrow();
+  });
+});
+
+describe('PATCH /vehicles/:vehicleId', () => {
+  it('actualiza los datos del dueño y normaliza la patente', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+      body: vehiclePayload({
+        vin: null,
+        licensePlate: 'gh-jk 34',
+        model: 'Golf',
+        currentMileage: 2500,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: vehicle.id,
+      vin: null,
+      licensePlate: 'GHJK34',
+      model: 'Golf',
+      currentMileage: 2500,
+    });
+  });
+
+  it('no permite que el kilometraje baje', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const equal = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+      body: vehiclePayload(),
+    });
+    const lower = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+      body: vehiclePayload({ currentMileage: 999 }),
+    });
+
+    expect(equal.status).toBe(200);
+    expect(lower.status).toBe(400);
+    expect(lower.body).toEqual({
+      message: 'El kilometraje no puede ser menor al actual.',
+    });
+    expect(
+      (await dataSource.getRepository(Vehicle).findOneByOrFail({ id: vehicle.id }))
+        .currentMileage,
+    ).toBe(1000);
+  });
+
+  it('responde 409 si la patente ya está en otro vehículo del mismo dueño', async () => {
+    const vehicle = await createVehicleAs('user-1', {
+      vin: null,
+      licensePlate: 'BCDF12',
+    });
+    await createVehicleAs('user-1', { vin: null, licensePlate: 'GHJK34' });
+
+    const response = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+      body: vehiclePayload({ vin: null, licensePlate: 'ghjk34' }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      message: 'Ya tienes este vehículo registrado',
+    });
+  });
+
+  it('valida igual que al crear y no guarda datos inválidos', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const response = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+      body: vehiclePayload({ vin: null, licensePlate: 'BC*DF#12' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.errors).toEqual([
+      expect.objectContaining({ field: 'licensePlate' }),
+    ]);
+  });
+
+  it('responde 404 a quien no es miembro y 403 a un invitado', async () => {
+    const vehicle = await createVehicleAs('user-1');
+
+    const outsider = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-2',
+      body: vehiclePayload({ model: 'Golf' }),
+    });
+
+    await dataSource.getRepository(UserVehicle).save({
+      userId: 'user-2',
+      vehicleId: vehicle.id,
+      role: UserVehicleRole.GUEST,
+    });
+
+    const guest = await api('PATCH', `/vehicles/${vehicle.id}`, {
+      userId: 'user-2',
+      body: vehiclePayload({ model: 'Golf' }),
+    });
+
+    expect(outsider.status).toBe(404);
+    expect(guest.status).toBe(403);
+    expect(guest.body).toEqual({
+      message: 'No tienes permiso para esta acción.',
+    });
+    expect(
+      (await dataSource.getRepository(Vehicle).findOneByOrFail({ id: vehicle.id }))
+        .model,
+    ).toBe('Polo');
+  });
+});
+
 describe('DELETE /vehicles/:vehicleId', () => {
   it('elimina el vehículo y sus membresías para el dueño', async () => {
     const vehicle = await createVehicleAs('user-1');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -6,6 +6,7 @@ import {
   StyleProp,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -36,7 +37,12 @@ export function OverflowMenu({
   style,
 }: OverflowMenuProps) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+  const anchorRef = useRef<ComponentRef<typeof View>>(null);
   const { isWide } = useBreakpoint();
+  const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -55,6 +61,23 @@ export function OverflowMenu({
   }, [open]);
 
   const close = () => setOpen(false);
+
+  // En escritorio el menú cuelga del botón: se mide al abrir para alinear el
+  // borde derecho del desplegable con el del botón.
+  const openMenu = () => {
+    setOpen(true);
+
+    if (!isWide) {
+      return;
+    }
+
+    anchorRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({
+        top: y + height + spacing.xs,
+        right: windowWidth - (x + width),
+      });
+    });
+  };
 
   const renderItems = () =>
     items.map((item, index) => (
@@ -87,12 +110,14 @@ export function OverflowMenu({
 
   return (
     <>
-      <IconButton
-        accessibilityLabel={accessibilityLabel}
-        icon="ellipsis-horizontal"
-        onPress={() => setOpen(true)}
-        style={style}
-      />
+      <View collapsable={false} ref={anchorRef}>
+        <IconButton
+          accessibilityLabel={accessibilityLabel}
+          icon="ellipsis-horizontal"
+          onPress={openMenu}
+          style={style}
+        />
+      </View>
 
       <Modal
         animationType="fade"
@@ -112,7 +137,10 @@ export function OverflowMenu({
             pointerEvents="box-none"
             style={[
               styles.dropdownContainer,
-              { paddingTop: insets.top + layout.headerHeight },
+              {
+                paddingRight: anchor?.right ?? spacing.lg,
+                paddingTop: anchor?.top ?? insets.top + layout.headerHeight,
+              },
             ]}
           >
             <View style={styles.dropdown}>{renderItems()}</View>

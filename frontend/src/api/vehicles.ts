@@ -68,6 +68,20 @@ export function deleteVehicle(vehicleId: string): Promise<void> {
   return apiRequest<void>(`/vehicles/${vehicleId}`, { method: 'DELETE' });
 }
 
+export function updateVehicle(
+  vehicleId: string,
+  payload: CreateVehiclePayload,
+): Promise<Vehicle> {
+  return apiRequest<Vehicle>(`/vehicles/${vehicleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function removeVehiclePhoto(vehicleId: string): Promise<void> {
+  return apiRequest<void>(`/vehicles/${vehicleId}/photo`, { method: 'DELETE' });
+}
+
 export function decodeVin(vin: string): Promise<VinDecodeResult> {
   return apiRequest<VinDecodeResult>(
     `/vehicles/vin/${encodeURIComponent(vin)}/decode`,
@@ -139,5 +153,17 @@ export function useCreateVehicle() {
 export function useDeleteVehicle() {
   return useMutation({
     mutationFn: deleteVehicle,
+  });
+}
+
+export function useUpdateVehicle() {
+  return useMutation({
+    mutationFn: ({
+      vehicleId,
+      payload,
+    }: {
+      vehicleId: string;
+      payload: CreateVehiclePayload;
+    }) => updateVehicle(vehicleId, payload),
   });
 }

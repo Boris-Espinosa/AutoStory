@@ -446,6 +446,16 @@ export default function VehicleDetailScreen() {
             <OverflowMenu
               items={[
                 {
+                  key: 'edit',
+                  label: 'Editar vehículo',
+                  icon: 'create-outline',
+                  onPress: () =>
+                    router.push({
+                      pathname: '/vehicles/[vehicleId]/edit',
+                      params: { vehicleId: vehicle.id },
+                    }),
+                },
+                {
                   key: 'delete',
                   label: 'Eliminar vehículo',
                   icon: 'trash-outline',

@@ -55,3 +55,7 @@ export const createVehicleSchema = z
   .strip();
 
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
+
+export const updateVehicleSchema = createVehicleSchema;
+
+export type UpdateVehicleInput = CreateVehicleInput;

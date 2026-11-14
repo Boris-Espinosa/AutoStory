@@ -82,6 +82,66 @@ export class VehiclesService {
   }
 
   /**
+   * Actualiza los datos editables. El kilometraje solo puede subir y los
+   * duplicados se buscan solo entre los vehículos propios del usuario.
+   */
+  async update(
+    userId: string,
+    vehicleId: string,
+    input: CreateVehicleInput,
+  ): Promise<Vehicle> {
+    return this.repositories.vehicles.manager.transaction(async (manager) => {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1))',
+        [userId],
+      );
+
+      const vehicle = await manager.findOneBy(Vehicle, { id: vehicleId });
+
+      if (!vehicle) {
+        throw new HttpError(404, 'Vehículo no encontrado.');
+      }
+
+      if (input.currentMileage < vehicle.currentMileage) {
+        throw new HttpError(
+          400,
+          'El kilometraje no puede ser menor al actual.',
+        );
+      }
+
+      const duplicates: unknown[] = await manager.query(
+        `SELECT 1
+           FROM "user_vehicles" membership
+           JOIN "vehicles" vehicle ON vehicle.id = membership.vehicle_id
+          WHERE membership.user_id = $1
+            AND membership.role = 'OWNER'
+            AND vehicle.id <> $2
+            AND (
+              vehicle.license_plate = $3
+              OR ($4::text IS NOT NULL AND vehicle.vin = $4)
+            )
+          LIMIT 1`,
+        [userId, vehicleId, input.licensePlate, input.vin],
+      );
+
+      if (duplicates.length > 0) {
+        throw new HttpError(409, 'Ya tienes este vehículo registrado');
+      }
+
+      vehicle.vin = input.vin;
+      vehicle.licensePlate = input.licensePlate;
+      vehicle.brand = input.brand;
+      vehicle.model = input.model;
+      vehicle.year = input.year;
+      vehicle.currentMileage = input.currentMileage;
+
+      await manager.save(vehicle);
+
+      return vehicle;
+    });
+  }
+
+  /**
    * Borra el vehículo y devuelve su foto para eliminarla después del commit.
    * La base borra en cascada membresías, repuestos, mantenciones y solicitudes.
    */
@@ -100,7 +160,10 @@ export class VehiclesService {
   }
 
   /** Guarda la nueva foto y devuelve la ruta anterior, si existía. */
-  async setPhoto(vehicleId: string, photoUrl: string): Promise<string | null> {
+  async setPhoto(
+    vehicleId: string,
+    photoUrl: string | null,
+  ): Promise<string | null> {
     const vehicle = await this.repositories.vehicles.findOneBy({
       id: vehicleId,
     });

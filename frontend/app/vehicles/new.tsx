@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, FieldErrors, useForm } from 'react-hook-form';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -16,13 +17,16 @@ import {
   View,
 } from 'react-native';
 import { z } from 'zod';
-import { ApiError } from '../../src/api/client';
+import { ApiError, resolvePhotoUrl } from '../../src/api/client';
 import {
   LocalPhoto,
+  removeVehiclePhoto,
   uploadVehiclePhoto,
   useBrands,
   useCreateVehicle,
   useDecodeVin,
+  useUpdateVehicle,
+  useVehicles,
   vehiclesQueryKey,
 } from '../../src/api/vehicles';
 import { MessageBanner } from '../../src/components/MessageBanner';
@@ -161,11 +165,20 @@ const DEFAULT_VALUES: FormValues = {
 
 export default function NewVehicleScreen() {
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ vehicleId?: string | string[] }>();
+  const editingId = Array.isArray(params.vehicleId)
+    ? params.vehicleId[0]
+    : params.vehicleId;
   const brandsQuery = useBrands();
+  const vehiclesQuery = useVehicles();
+  const editingVehicle =
+    vehiclesQuery.data?.find((vehicle) => vehicle.id === editingId) ?? null;
   const createVehicleMutation = useCreateVehicle();
+  const updateVehicleMutation = useUpdateVehicle();
   const { isWide } = useBreakpoint();
   const { scrollViewRef, trackField, scrollToFirst } = useFormScroll();
   const [photo, setPhoto] = useState<LocalPhoto | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [createdVehicleId, setCreatedVehicleId] = useState<string | null>(null);
@@ -175,6 +188,7 @@ export default function NewVehicleScreen() {
   const [autofilledVin, setAutofilledVin] = useState<string | null>(null);
   const [discardVisible, setDiscardVisible] = useState(false);
   const vinCharsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefilled = useRef(false);
 
   // Campos que el usuario tocó: el autocompletado nunca los pisa.
   const editedFields = useRef(new Set<keyof FormValues>());
@@ -208,6 +222,24 @@ export default function NewVehicleScreen() {
       }
     };
   }, []);
+
+  // Precarga una sola vez los datos del vehículo que se está editando.
+  useEffect(() => {
+    if (!editingVehicle || prefilled.current) {
+      return;
+    }
+
+    prefilled.current = true;
+    reset({
+      vin: editingVehicle.vin ?? '',
+      brand: editingVehicle.brand,
+      model: editingVehicle.model,
+      year: String(editingVehicle.year),
+      licensePlate: editingVehicle.licensePlate,
+      currentMileage: String(editingVehicle.currentMileage),
+    });
+    setExistingPhotoUrl(editingVehicle.photoUrl);
+  }, [editingVehicle, reset]);
 
   const showVinCharsMessage = (removed: boolean) => {
     if (vinCharsTimer.current) {
@@ -354,8 +386,32 @@ export default function NewVehicleScreen() {
       return;
     }
 
+    if (editingId) {
+      router.replace({
+        pathname: '/vehicles/[vehicleId]',
+        params: { vehicleId: editingId },
+      });
+      return;
+    }
+
     router.replace('/');
   };
+
+  if (editingId && (!editingVehicle || editingVehicle.role !== 'OWNER')) {
+    return (
+      <Screen maxWidth={layout.formMaxWidth}>
+        <AppHeader onBack={goBack} title="Editar Vehículo" />
+
+        {vehiclesQuery.isLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <MessageBanner message="No se encontró el vehículo." tone="error" />
+        )}
+      </Screen>
+    );
+  }
 
   const finishCreate = async (
     flash = 'Vehículo registrado',
@@ -375,7 +431,11 @@ export default function NewVehicleScreen() {
       return;
     }
 
-    if (isDirty || photo !== null) {
+    if (
+      isDirty ||
+      photo !== null ||
+      existingPhotoUrl !== (editingVehicle?.photoUrl ?? null)
+    ) {
       setDiscardVisible(true);
       return;
     }
@@ -429,18 +489,66 @@ export default function NewVehicleScreen() {
     }
   };
 
+  /** Aplica los cambios de foto tras editar; si falla, deja reintentar. */
+  const syncPhoto = async (vehicleId: string): Promise<boolean> => {
+    setPhotoError(null);
+
+    try {
+      if (photo) {
+        setUploadingPhoto(true);
+        await uploadVehiclePhoto(vehicleId, photo);
+      } else if (editingVehicle?.photoUrl && !existingPhotoUrl) {
+        await removeVehiclePhoto(vehicleId);
+      }
+
+      return true;
+    } catch (error) {
+      setPhotoError(
+        `No se pudo guardar la foto: ${photoUploadErrorMessage(error)}`,
+      );
+      return false;
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     setGeneralError(null);
 
+    const payload = {
+      vin: values.vin === '' ? null : values.vin,
+      licensePlate: values.licensePlate,
+      brand: values.brand,
+      model: values.model.trim(),
+      year: Number(values.year),
+      currentMileage: parseAmount(values.currentMileage),
+    };
+
     try {
-      const vehicle = await createVehicleMutation.mutateAsync({
-        vin: values.vin === '' ? null : values.vin,
-        licensePlate: values.licensePlate,
-        brand: values.brand,
-        model: values.model.trim(),
-        year: Number(values.year),
-        currentMileage: parseAmount(values.currentMileage),
-      });
+      if (editingVehicle) {
+        await updateVehicleMutation.mutateAsync({
+          vehicleId: editingVehicle.id,
+          payload,
+        });
+
+        if (!(await syncPhoto(editingVehicle.id))) {
+          return;
+        }
+
+        await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace({
+            pathname: '/vehicles/[vehicleId]',
+            params: { vehicleId: editingVehicle.id },
+          });
+        }
+        return;
+      }
+
+      const vehicle = await createVehicleMutation.mutateAsync(payload);
 
       setCreatedVehicleId(vehicle.id);
       await uploadPhoto(vehicle.id);
@@ -481,6 +589,15 @@ export default function NewVehicleScreen() {
     }
   };
 
+  const previewUri =
+    photo?.uri ??
+    (existingPhotoUrl ? resolvePhotoUrl(existingPhotoUrl) : null);
+
+  const removePhoto = () => {
+    setPhoto(null);
+    setExistingPhotoUrl(null);
+  };
+
   const footer = (
     <FormFooter
       cancelLabel={createdVehicleId ? 'Continuar sin foto' : 'Cancelar'}
@@ -491,7 +608,13 @@ export default function NewVehicleScreen() {
           ? () => void uploadPhoto(createdVehicleId)
           : () => void handleSubmit(onSubmit, onInvalid)()
       }
-      submitLabel={createdVehicleId ? 'Reintentar foto' : 'Guardar Vehículo'}
+      submitLabel={
+        editingId
+          ? 'Guardar cambios'
+          : createdVehicleId
+            ? 'Reintentar foto'
+            : 'Guardar Vehículo'
+      }
     />
   );
 
@@ -506,7 +629,10 @@ export default function NewVehicleScreen() {
         footer={isWide ? undefined : footer}
         maxWidth={layout.formMaxWidth}
       >
-        <AppHeader onBack={handleCancel} title="Nuevo Vehículo" />
+        <AppHeader
+          onBack={handleCancel}
+          title={editingId ? 'Editar Vehículo' : 'Nuevo Vehículo'}
+        />
 
         <ScrollView
           contentContainerStyle={[styles.content, isWide && styles.contentWide]}
@@ -708,7 +834,7 @@ export default function NewVehicleScreen() {
           <View style={styles.photoField}>
             <Text style={styles.photoLabel}>Subir Foto del Vehículo</Text>
 
-            {photo ? (
+            {previewUri ? (
               <View style={styles.photoPreview}>
                 <Pressable
                   accessibilityLabel="Cambiar foto"
@@ -718,14 +844,14 @@ export default function NewVehicleScreen() {
                 >
                   <Image
                     resizeMode="cover"
-                    source={{ uri: photo.uri }}
+                    source={{ uri: previewUri }}
                     style={styles.photoImage}
                   />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Quitar foto"
                   accessibilityRole="button"
-                  onPress={() => setPhoto(null)}
+                  onPress={removePhoto}
                   style={styles.removePhotoButton}
                 >
                   <Icon
@@ -774,6 +900,11 @@ export default function NewVehicleScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
   },
   screenContent: {
     flex: 1,

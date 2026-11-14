@@ -39,7 +39,12 @@ import {
   requireVehicleOwner,
 } from './vehicle-access.middleware';
 import { VehicleAccessService } from './vehicle-access.service';
-import { CreateVehicleInput, createVehicleSchema } from './vehicle.schema';
+import {
+  CreateVehicleInput,
+  UpdateVehicleInput,
+  createVehicleSchema,
+  updateVehicleSchema,
+} from './vehicle.schema';
 import { vinParamSchema } from './vin';
 import { VehiclesService } from './vehicles.service';
 import { VinDecoderService } from './vin-decoder.service';
@@ -251,6 +256,20 @@ export function createVehiclesRouter(
     }),
   );
 
+  router.patch(
+    '/:vehicleId',
+    owner,
+    validateBody(updateVehicleSchema),
+    asyncHandler(async (req, res) => {
+      const vehicle = await vehiclesService.update(
+        req.auth.userId,
+        req.params.vehicleId,
+        req.body as UpdateVehicleInput,
+      );
+      res.json(vehicle);
+    }),
+  );
+
   router.delete(
     '/:vehicleId',
     owner,
@@ -333,6 +352,28 @@ export function createVehiclesRouter(
       }
 
       res.json({ photoUrl });
+    }),
+  );
+
+  router.delete(
+    '/:vehicleId/photo',
+    owner,
+    asyncHandler(async (req, res) => {
+      const previous = await vehiclesService.setPhoto(
+        req.params.vehicleId,
+        null,
+      );
+
+      try {
+        await storage.remove(previous);
+      } catch (error) {
+        logError(
+          'No se pudo borrar la foto del vehículo.',
+          error instanceof Error ? error.name : undefined,
+        );
+      }
+
+      res.status(204).end();
     }),
   );
 

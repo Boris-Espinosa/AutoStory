@@ -48,11 +48,14 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
         },
       ]}
     >
-      <Image
-        accessibilityLabel="AutoStory"
-        source={logo}
-        style={styles.brand}
-      />
+      <View style={styles.brand}>
+        <Image
+          accessibilityLabel="AutoStory"
+          resizeMode="contain"
+          source={logo}
+          style={styles.brandLogo}
+        />
+      </View>
 
       {state.routes.map((route, index) => {
         const section = sections.find((item) => item.name === route.name);
@@ -169,9 +172,14 @@ const styles = StyleSheet.create({
     width: layout.sidebarWidth,
   },
   brand: {
-    aspectRatio: layout.brandLogoAspectRatio,
     marginBottom: spacing.lg,
-    width: layout.sidebarWidth - spacing.xxl,
+    paddingHorizontal: spacing.md,
+    width: '100%',
+  },
+  brandLogo: {
+    aspectRatio: layout.brandLogoAspectRatio,
+    maxWidth: layout.brandLogoMaxWidth,
+    width: '100%',
   },
   sidebarItem: {
     alignItems: 'center',

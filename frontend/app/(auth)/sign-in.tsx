@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
-import logo from '../../assets/brand/logo.png';
+import splashIcon from '../../assets/brand/splash-icon.png';
 
 import { MessageBanner } from '../../src/components/MessageBanner';
 import { Card } from '../../src/components/ui/Card';
@@ -189,7 +189,8 @@ export default function SignInScreen() {
       <Card style={styles.card}>
         <Image
           accessibilityLabel="AutoStory"
-          source={logo}
+          resizeMode="contain"
+          source={splashIcon}
           style={styles.logo}
         />
 
@@ -300,8 +301,9 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignSelf: 'center',
-    aspectRatio: layout.brandLogoAspectRatio,
-    width: layout.brandLogoWidth,
+    aspectRatio: 1,
+    marginBottom: spacing.lg,
+    width: layout.brandMarkSize,
   },
   tagline: {
     ...typography.body,

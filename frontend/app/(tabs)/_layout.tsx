@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
   },
   brandLogo: {
     alignSelf: 'stretch',
+    height: 48,
     aspectRatio: layout.brandLogoAspectRatio,
     marginBottom: spacing.lg,
     width: '100%',

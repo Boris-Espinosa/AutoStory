@@ -97,7 +97,7 @@ export const layout = {
   sidebarWidth: 220,
   avatarSize: 56,
   photoSize: 72,
-  brandMarkSize: 96,
+  brandMarkSize: 72,
   brandLogoMaxWidth: 160,
   brandLogoAspectRatio: 750 / 192,
   iconCircleSize: 64,

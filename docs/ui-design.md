@@ -9,13 +9,13 @@
 6. Áreas táctiles de al menos 44×44 px y accessibilityLabel en iconos y botones.
 
 ## Navegación
-- Nivel 1, secciones (arreglo configurable): Vehículos, Citas, Avisos y Cuenta. Avisos usa el título de pantalla "Notificaciones" y muestra el contador de no leídas. Compacto: barra inferior. Medio y expandido: barra lateral izquierda de 220 px con el nombre "AutoStory".
+- Nivel 1, secciones (arreglo configurable): Vehículos, Citas, Avisos y Cuenta. Avisos usa el título de pantalla "Notificaciones" y muestra el contador de no leídas. Compacto: barra inferior. Medio y expandido: barra lateral izquierda de 220 px con el logo horizontal de AutoStory (logo.png).
 - Nivel 2, ficha del vehículo en /vehicles/[vehicleId], con pestañas Resumen, Mantenciones, Repuestos y Citas controladas por ?tab=summary|maintenances|parts|appointments (por defecto summary).
 - Nivel 3, pantallas completas sin barra de secciones y con encabezado propio (volver y título): Nuevo vehículo, Registrar mantención, Detalle de mantención, Añadir repuesto, Programar cita, Editar cita y Detalle de cita.
 - Las rutas /vehicles/[id]/parts y /vehicles/[id]/maintenances (listas) redirigen a la ficha con la pestaña correspondiente.
 
 ## Pantallas
-- Iniciar sesión (fuera de las secciones, sin barra de navegación): tarjeta centrada de ancho máximo 420 con icono, nombre AutoStory, frase breve, botones "Continuar con Google" (fondo blanco, borde y logo de Google) y "Continuar con Apple" (fondo negro, texto blanco y logo de Apple), del mismo tamaño y de ancho completo de la tarjeta, y un texto legal breve. Es la excepción a "un solo botón primario": son dos alternativas equivalentes.
+- Iniciar sesión (fuera de las secciones, sin barra de navegación): tarjeta centrada de ancho máximo 420 con la marca 'A' (splash-icon.png) sin texto, frase breve, botones "Continuar con Google" (fondo blanco, borde y logo de Google) y "Continuar con Apple" (fondo negro, texto blanco y logo de Apple), del mismo tamaño y de ancho completo de la tarjeta, y un texto legal breve. La tarjeta ocupa solo la altura de su contenido y se centra en la pantalla. Es la excepción a "un solo botón primario": son dos alternativas equivalentes.
 - Mis vehículos: rejilla de 1, 2 o 3 columnas, contenedor máximo 1100 px. Acción principal: botón "Registrar vehículo" arriba a la derecha (medio y expandido) o Fab "+" (compacto). Tarjeta: foto 72×72, patente en negrita, "Marca Modelo · Año", kilometraje; Badge "Invitado" si corresponde; sin VIN y sin botones.
 - Ficha del vehículo (máximo 900 px): encabezado con volver, patente y menú "⋯" (solo dueño, con "Eliminar vehículo"); hero con foto, marca, modelo, año, kilometraje, VIN abreviado e insignia "Invitado"; pestañas.
 - Resumen: tarjeta "Gasto total" con desglose, estadísticas, tarjeta "Próxima cita", acciones rápidas secundarias (Registrar mantención, Añadir repuesto) y las últimas 3 mantenciones. Sin Fab.

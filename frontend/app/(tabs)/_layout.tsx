@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
     width: layout.sidebarWidth,
   },
   brandLogo: {
+    alignSelf: 'flex-start',
     aspectRatio: layout.brandLogoAspectRatio,
     marginBottom: spacing.lg,
     maxWidth: layout.brandLogoMaxWidth,

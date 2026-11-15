@@ -295,13 +295,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   card: {
+    alignSelf: 'center',
     gap: spacing.md,
     maxWidth: layout.modalMaxWidth,
     width: '100%',
   },
   logo: {
     alignSelf: 'center',
-    aspectRatio: 1,
+    height: layout.brandMarkSize,
+    marginBottom: spacing.sm,
     width: layout.brandMarkSize,
   },
   tagline: {

@@ -193,7 +193,7 @@ export default function SignInScreen() {
           source={splashIcon}
           style={styles.logo}
         />
-
+        <Text style={styles.brandName}>AutoStory</Text>
         <Text style={styles.tagline}>
           Todo el historial de tus vehículos en un solo lugar
         </Text>
@@ -287,6 +287,12 @@ function ProviderButton({
 }
 
 const styles = StyleSheet.create({
+  brandName: {
+  ...typography.title,
+  color: colors.primary,
+  fontWeight: '700',
+  textAlign: 'center',
+  },
   screen: {
     alignItems: 'center',
     backgroundColor: colors.background,

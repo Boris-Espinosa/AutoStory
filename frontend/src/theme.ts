@@ -98,7 +98,6 @@ export const layout = {
   avatarSize: 56,
   photoSize: 72,
   brandMarkSize: 112,
-  brandLogoMaxWidth: 150,
   brandLogoAspectRatio: 750 / 192,
   iconCircleSize: 64,
   heroPhotoHeight: 180,

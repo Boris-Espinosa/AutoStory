@@ -44,7 +44,7 @@ function SideNav({ state, navigateToTab, insets, sections }: SideNavProps) {
         styles.sidebar,
         {
           paddingBottom: insets.bottom + spacing.lg,
-          paddingTop: insets.top + spacing.lg,
+          paddingTop: insets.top + spacing.md,
         },
       ]}
     >
@@ -165,15 +165,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRightColor: colors.borderSubtle,
     borderRightWidth: layout.borderWidth,
-    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     width: layout.sidebarWidth,
   },
   brandLogo: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     aspectRatio: layout.brandLogoAspectRatio,
     marginBottom: spacing.lg,
-    maxWidth: layout.brandLogoMaxWidth,
     width: '100%',
   },
   sidebarItem: {

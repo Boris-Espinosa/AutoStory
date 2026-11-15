@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/brand/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F3F4F6"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,9 +19,8 @@
     "android": {
       "package": "com.autostory.app",
       "adaptiveIcon": {
-        "backgroundColor": "#2563EB",
-        "foregroundImage": "./assets/brand/adaptive-icon.png",
-        "monochromeImage": "./assets/brand/adaptive-icon.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/brand/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },

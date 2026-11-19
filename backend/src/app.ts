@@ -31,11 +31,11 @@ import { createNotificationsRouter } from './controllers/notifications.controlle
 import { NotificationsService } from './services/notifications.service';
 import { createPartsRouter } from './controllers/parts.controller';
 import { PartsService } from './services/parts.service';
-import { createVehiclesRouter } from './vehicles/vehicles.controller';
+import { createVehiclesRouter } from './controllers/vehicles.controller';
 import { VehicleAccessService } from './services/vehicle-access.service';
-import { VehiclesService } from './vehicles/vehicles.service';
+import { VehiclesService } from './services/vehicles.service';
 import { UPLOADS_DIR } from './middlewares/photo-upload';
-import { VinDecoderService } from './vehicles/vin-decoder.service';
+import { VinDecoderService } from './services/vin-decoder.service';
 import { WorkshopService } from './services/workshop.service';
 import { createWorkshopsRouter } from './controllers/workshops.controller';
 import {

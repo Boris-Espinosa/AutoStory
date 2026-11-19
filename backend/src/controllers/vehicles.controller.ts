@@ -46,8 +46,8 @@ import {
   updateVehicleSchema,
 } from '../schemas/vehicle.schema';
 import { vinParamSchema } from '../utils/vin';
-import { VehiclesService } from './vehicles.service';
-import { VinDecoderService } from './vin-decoder.service';
+import { VehiclesService } from '../services/vehicles.service';
+import { VinDecoderService } from '../services/vin-decoder.service';
 
 export function createVehiclesRouter(
   vehiclesService: VehiclesService,

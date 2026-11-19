@@ -6,10 +6,10 @@ import {
   validateBody,
 } from '../common/validation-pipe';
 import { UserSyncService } from '../services/user-sync.service';
-import { AccountDeletionService } from './account-deletion.service';
+import { AccountDeletionService } from '../services/account-deletion.service';
 import { deleteAccountSchema } from '../schemas/account-deletion.schema';
 import { listRemindersQuerySchema } from '../schemas/reminders.schema';
-import { RemindersService } from './reminders.service';
+import { RemindersService } from '../services/reminders.service';
 
 export function createMeRouter(
   service: RemindersService,

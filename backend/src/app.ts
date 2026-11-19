@@ -24,9 +24,9 @@ import {
   AccountDeletionService,
   ClerkUserDeleter,
   ClerkUserDeleterService,
-} from './me/account-deletion.service';
-import { createMeRouter } from './me/me.controller';
-import { RemindersService } from './me/reminders.service';
+} from './services/account-deletion.service';
+import { createMeRouter } from './controllers/me.controller';
+import { RemindersService } from './services/reminders.service';
 import { createNotificationsRouter } from './notifications/notifications.controller';
 import { NotificationsService } from './notifications/notifications.service';
 import { createPartsRouter } from './controllers/parts.controller';

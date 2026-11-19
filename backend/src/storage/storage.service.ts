@@ -163,7 +163,11 @@ export class StorageService {
     }
 
     const relativePath = key.slice(VEHICLE_PHOTO_KEY_PREFIX.length);
-    const finalPath = path.join(VEHICLE_UPLOADS_DIR, relativePath);
+    const baseDir = path.resolve(VEHICLE_UPLOADS_DIR);
+    const finalPath = path.resolve(baseDir, relativePath);
+    if (!finalPath.startsWith(baseDir + path.sep)) {
+      throw new Error('Ruta de foto inválida.');
+    }
     await fs.mkdir(path.dirname(finalPath), { recursive: true });
     await fs.rename(source, finalPath);
 
@@ -195,13 +199,16 @@ export class StorageService {
       return;
     }
 
-    await fs.rm(
-      path.join(
-        VEHICLE_UPLOADS_DIR,
-        photoKey.slice(VEHICLE_PHOTO_KEY_PREFIX.length),
-      ),
-      { force: true },
+    const baseDir = path.resolve(VEHICLE_UPLOADS_DIR);
+    const targetPath = path.resolve(
+      baseDir,
+      photoKey.slice(VEHICLE_PHOTO_KEY_PREFIX.length),
     );
+    if (!targetPath.startsWith(baseDir + path.sep)) {
+      throw new Error('Ruta de foto inválida.');
+    }
+
+    await fs.rm(targetPath, { force: true });
   }
 }
 

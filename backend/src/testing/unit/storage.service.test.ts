@@ -126,4 +126,64 @@ describe('StorageService con driver disk', () => {
 
     await fs.rm(ownerDir, { recursive: true, force: true });
   });
+
+  it('rechaza keys que salen de uploads sin tocar el disco', async () => {
+    const storage = new StorageService({ driver: 'disk', s3: {} });
+    const sentinel = path.join(
+      path.dirname(VEHICLE_UPLOADS_DIR),
+      `${randomUUID()}.txt`,
+    );
+    const tempPath = path.join(VEHICLE_UPLOADS_DIR, `${randomUUID()}.tmp`);
+    const outsideFile = `${randomUUID()}.png`;
+    const absoluteOutside = path.sep === '\\' ? 'C:/Windows' : '/etc';
+    const traversalSegments = ['..', String.raw`..\..`, absoluteOutside];
+
+    await fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true });
+    await fs.writeFile(sentinel, PNG);
+    await fs.writeFile(tempPath, PNG);
+
+    const rmSpy = jest.spyOn(fs, 'rm');
+    const renameSpy = jest.spyOn(fs, 'rename');
+
+    try {
+      for (const segment of traversalSegments) {
+        await expect(
+          storage.save(tempPath, 'png', segment, 'vehiculo'),
+        ).rejects.toThrow();
+        await expect(
+          storage.save(tempPath, 'png', 'usuario', segment),
+        ).rejects.toThrow();
+
+        for (const key of [
+          `vehicles/${segment}/vehiculo/${outsideFile}`,
+          `vehicles/usuario/${segment}/${outsideFile}`,
+        ]) {
+          if (isLegacyPhotoUrl(key)) {
+            await expect(storage.remove(key)).resolves.toBeUndefined();
+          } else {
+            await expect(storage.remove(key)).rejects.toThrow(
+              'Ruta de foto inválida.',
+            );
+          }
+        }
+      }
+
+      await expect(
+        storage.save(tempPath, 'png', 'usuario', `vehiculo\0`),
+      ).rejects.toThrow();
+      await expect(
+        storage.remove(`vehicles/usuario/vehiculo/${outsideFile}\0.png`),
+      ).resolves.toBeUndefined();
+
+      expect(renameSpy).not.toHaveBeenCalled();
+      expect(rmSpy).not.toHaveBeenCalled();
+      await expect(fs.access(sentinel)).resolves.toBeUndefined();
+      await expect(fs.access(tempPath)).resolves.toBeUndefined();
+    } finally {
+      rmSpy.mockRestore();
+      renameSpy.mockRestore();
+      await fs.rm(sentinel, { force: true });
+      await fs.rm(tempPath, { force: true });
+    }
+  });
 });

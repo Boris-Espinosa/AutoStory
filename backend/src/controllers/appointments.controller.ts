@@ -12,7 +12,7 @@ import {
   listUserAppointmentsQuerySchema,
   updateAppointmentSchema,
 } from '../schemas/appointment.schema';
-import { AppointmentService } from './appointments.service';
+import { AppointmentService } from '../services/appointments.service';
 
 export function createAppointmentsRouter(
   service: AppointmentService,

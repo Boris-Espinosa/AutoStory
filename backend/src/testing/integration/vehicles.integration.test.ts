@@ -1028,4 +1028,48 @@ describe('DELETE /vehicles/:vehicleId', () => {
       }),
     ]);
   });
+
+  it('no adopta la photoUrl de otro usuario y no borra su archivo', async () => {
+    const ownerVehicle = await createVehicleAs('user-1');
+    const uploaded = await uploadPhoto(
+      'user-1',
+      ownerVehicle.id,
+      'foto.png',
+      PNG_BYTES,
+    );
+    expect(uploaded.status).toBe(200);
+
+    const list = await api('GET', '/vehicles', { userId: 'user-1' });
+    const [listed] = list.body as unknown as Array<{ photoUrl: string }>;
+    const photoUrl = listed.photoUrl;
+    expect(photoUrl).toBe(uploaded.body.photoUrl);
+    createdPhotos.push(photoUrl);
+    const photoPath = uploadedFilePath(photoUrl);
+    await expect(fs.access(photoPath)).resolves.toBeUndefined();
+
+    const created = await createVehicleAs('user-2', { photoUrl });
+    expect(created.photoUrl).toBeNull();
+
+    const updated = await api('PATCH', `/vehicles/${created.id}`, {
+      userId: 'user-2',
+      body: vehiclePayload({ photoUrl }),
+    });
+    expect(updated.status).toBe(200);
+    expect(updated.body.photoUrl).toBeNull();
+    expect(
+      (await dataSource.getRepository(Vehicle).findOneByOrFail({ id: created.id }))
+        .photoUrl,
+    ).toBeNull();
+
+    const removed = await api('DELETE', `/vehicles/${created.id}`, {
+      userId: 'user-2',
+    });
+    expect(removed.status).toBe(204);
+    await expect(fs.access(photoPath)).resolves.toBeUndefined();
+
+    const ownerList = await api('GET', '/vehicles', { userId: 'user-1' });
+    expect(ownerList.body).toEqual([
+      expect.objectContaining({ id: ownerVehicle.id, photoUrl }),
+    ]);
+  });
 });

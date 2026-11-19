@@ -81,12 +81,12 @@ export function createVehiclesRouter(
   // Antes de cualquier ruta con :vehicleId.
   router.get('/brands', asyncHandler(listBrands()));
 
-  router.get('/', asyncHandler(listVehicles(vehiclesService)));
+  router.get('/', asyncHandler(listVehicles(vehiclesService, storage)));
 
   router.post(
     '/',
     validateBody(createVehicleSchema),
-    asyncHandler(createVehicle(vehiclesService)),
+    asyncHandler(createVehicle(vehiclesService, storage)),
   );
 
   router.get(
@@ -156,7 +156,7 @@ export function createVehiclesRouter(
     '/:vehicleId',
     owner,
     validateBody(updateVehicleSchema),
-    asyncHandler(updateVehicle(vehiclesService)),
+    asyncHandler(updateVehicle(vehiclesService, storage)),
   );
 
   router.delete(

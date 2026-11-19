@@ -8,7 +8,10 @@ import { User } from '../../entities/User';
 import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
 import { Vehicle } from '../../entities/Vehicle';
 import { createStorageService } from '../../storage/storage.service';
-import { VEHICLE_UPLOADS_DIR } from '../../middlewares/photo-upload';
+import {
+  UPLOADS_DIR,
+  VEHICLE_UPLOADS_DIR,
+} from '../../middlewares/photo-upload';
 import { createTestDataSource } from '../test-data-source';
 
 const VIN = 'WVWZZZ6RZMY000001';
@@ -103,11 +106,21 @@ const TXT_BYTES = Buffer.from('no soy una imagen');
 
 const createdPhotos: string[] = [];
 
+function uploadedFilePath(photoUrlOrKey: string): string {
+  const relative = photoUrlOrKey.startsWith('/uploads/')
+    ? photoUrlOrKey.slice('/uploads/'.length)
+    : photoUrlOrKey;
+
+  return path.join(UPLOADS_DIR, relative);
+}
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 afterAll(async () => {
   for (const photoUrl of createdPhotos) {
-    await fs.rm(path.join(VEHICLE_UPLOADS_DIR, path.basename(photoUrl)), {
-      force: true,
-    });
+    await fs.rm(uploadedFilePath(photoUrl), { force: true });
   }
 });
 
@@ -476,7 +489,11 @@ describe('POST /vehicles/:vehicleId/photo', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.body.photoUrl).toMatch(/^\/uploads\/vehicles\/[0-9a-f-]{36}\.jpg$/);
+    expect(response.body.photoUrl).toMatch(
+      new RegExp(
+        `^/uploads/vehicles/user-1/${vehicle.id}/[0-9a-f-]{36}\\.jpg$`,
+      ),
+    );
     createdPhotos.push(response.body.photoUrl as string);
   });
 
@@ -634,9 +651,11 @@ describe('POST /vehicles/:vehicleId/photo', () => {
 
     const firstUrl = first.body.photoUrl as string;
     createdPhotos.push(firstUrl);
-    expect(firstUrl).toMatch(/^\/uploads\/vehicles\/[0-9a-f-]{36}\.png$/);
+    expect(firstUrl).toMatch(
+      new RegExp(`^/uploads/vehicles/user-1/${vehicle.id}/[0-9a-f-]{36}\\.png$`),
+    );
     await expect(
-      fs.access(path.join(VEHICLE_UPLOADS_DIR, path.basename(firstUrl))),
+      fs.access(uploadedFilePath(firstUrl)),
     ).resolves.toBeUndefined();
 
     const second = await uploadPhoto(
@@ -651,7 +670,7 @@ describe('POST /vehicles/:vehicleId/photo', () => {
     createdPhotos.push(secondUrl);
     expect(secondUrl).not.toBe(firstUrl);
     await expect(
-      fs.access(path.join(VEHICLE_UPLOADS_DIR, path.basename(firstUrl))),
+      fs.access(uploadedFilePath(firstUrl)),
     ).rejects.toThrow();
 
     const list = await api('GET', '/vehicles', { userId: 'user-1' });
@@ -733,10 +752,7 @@ describe('DELETE /vehicles/:vehicleId/photo', () => {
         .photoUrl,
     ).toBeNull();
 
-    const previousPath = path.join(
-      VEHICLE_UPLOADS_DIR,
-      path.basename(uploaded.body.photoUrl as string),
-    );
+    const previousPath = uploadedFilePath(uploaded.body.photoUrl as string);
     await expect(fs.stat(previousPath)).rejects.toThrow();
   });
 });
@@ -923,7 +939,7 @@ describe('DELETE /vehicles/:vehicleId', () => {
     );
     const photoUrl = uploaded.body.photoUrl as string;
     createdPhotos.push(photoUrl);
-    const photoPath = path.join(VEHICLE_UPLOADS_DIR, path.basename(photoUrl));
+    const photoPath = uploadedFilePath(photoUrl);
 
     await expect(fs.access(photoPath)).resolves.toBeUndefined();
 
@@ -933,6 +949,64 @@ describe('DELETE /vehicles/:vehicleId', () => {
 
     expect(response.status).toBe(204);
     await expect(fs.access(photoPath)).rejects.toThrow();
+  });
+
+  it('devuelve una photoUrl legacy tal cual y no la pasa a storage.remove', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const legacyUrl = '/uploads/vehicles/legacy-delete-test.png';
+    const legacyPath = uploadedFilePath(legacyUrl);
+    createdPhotos.push(legacyUrl);
+
+    await fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true });
+    await fs.writeFile(legacyPath, PNG_BYTES);
+    await dataSource.getRepository(Vehicle).update(
+      { id: vehicle.id },
+      { photoUrl: legacyUrl },
+    );
+
+    const list = await api('GET', '/vehicles', { userId: 'user-1' });
+    expect(list.body).toEqual([
+      expect.objectContaining({ photoUrl: legacyUrl }),
+    ]);
+
+    const removeSpy = jest.spyOn(storage, 'remove');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const response = await api('DELETE', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+    });
+
+    expect(response.status).toBe(204);
+    expect(removeSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    await expect(fs.access(legacyPath)).resolves.toBeUndefined();
+  });
+
+  it('no borra una key que no pertenece al usuario y vehículo', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const foreignKey =
+      'vehicles/user-2/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.png';
+    const foreignPath = uploadedFilePath(foreignKey);
+    createdPhotos.push(foreignKey);
+
+    await fs.mkdir(path.dirname(foreignPath), { recursive: true });
+    await fs.writeFile(foreignPath, PNG_BYTES);
+    await dataSource.getRepository(Vehicle).update(
+      { id: vehicle.id },
+      { photoUrl: foreignKey },
+    );
+
+    const removeSpy = jest.spyOn(storage, 'remove');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const response = await api('DELETE', `/vehicles/${vehicle.id}`, {
+      userId: 'user-1',
+    });
+
+    expect(response.status).toBe(204);
+    expect(removeSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    await expect(fs.access(foreignPath)).resolves.toBeUndefined();
+
+    await fs.rm(path.dirname(foreignPath), { recursive: true, force: true });
   });
 
   it('no afecta el vehículo de otro usuario con la misma patente y VIN', async () => {

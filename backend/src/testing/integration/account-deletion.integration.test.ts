@@ -54,9 +54,8 @@ let notifications: Repository<Notification>;
 let sharingRequests: Repository<SharingRequest>;
 
 const clock: Clock = { now: () => new Date('2026-11-09T12:00:00.000Z') };
-const PHOTO_NAME = 'account-deletion-test.jpg';
-const PHOTO_PATH = path.join(VEHICLE_UPLOADS_DIR, PHOTO_NAME);
-const PHOTO_URL = `/uploads/vehicles/${PHOTO_NAME}`;
+const PHOTO_NAME = '00000000-0000-4000-8000-000000000000.jpg';
+let photoPath: string;
 
 interface ApiResponse {
   status: number;
@@ -124,7 +123,12 @@ async function seedAccountData(): Promise<void> {
   await seedUser('user-2');
   await seedUser('user-3');
 
-  const v1 = await seedVehicle('11', 'user-1', PHOTO_URL);
+  const v1 = await seedVehicle('11', 'user-1');
+  photoPath = path.join(VEHICLE_UPLOADS_DIR, 'user-1', v1.id, PHOTO_NAME);
+  await vehicles.update(
+    { id: v1.id },
+    { photoUrl: `vehicles/user-1/${v1.id}/${PHOTO_NAME}` },
+  );
   const v2 = await seedVehicle('22', 'user-2');
   const v3 = await seedVehicle('33', 'user-3');
 
@@ -271,13 +275,13 @@ beforeEach(async () => {
   await dataSource.query(
     `TRUNCATE TABLE "notifications", "appointment_reminders", "appointments", "user_vehicles", "sharing_requests", "parts", "maintenances", "workshops", "vehicles", "users" CASCADE`,
   );
-  await fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true });
-  await fs.writeFile(PHOTO_PATH, 'foto');
   await seedAccountData();
+  await fs.mkdir(path.dirname(photoPath), { recursive: true });
+  await fs.writeFile(photoPath, 'foto');
 });
 
 afterEach(async () => {
-  await fs.rm(PHOTO_PATH, { force: true });
+  await fs.rm(path.dirname(photoPath), { recursive: true, force: true });
 });
 
 describe('eliminación de cuenta', () => {
@@ -308,7 +312,7 @@ describe('eliminación de cuenta', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ clerkDeleted: true });
       expect(deleter.calls).toEqual(['user-1']);
-      await expect(fs.access(PHOTO_PATH)).rejects.toBeDefined();
+      await expect(fs.access(photoPath)).rejects.toBeDefined();
 
       expect(await users.findOneBy({ id: 'user-1' })).toBeNull();
       expect(await vehicles.findOneBy({ licensePlate: 'BCDF11' })).toBeNull();

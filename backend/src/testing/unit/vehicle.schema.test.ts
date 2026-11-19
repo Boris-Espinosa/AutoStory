@@ -1,4 +1,7 @@
-import { createVehicleSchema } from '../../schemas/vehicle.schema';
+import {
+  createVehicleSchema,
+  updateVehicleSchema,
+} from '../../schemas/vehicle.schema';
 
 const VIN = 'WVWZZZ6RZMY000001';
 const CURRENT_YEAR = new Date().getFullYear();
@@ -133,5 +136,17 @@ describe('createVehicleSchema', () => {
     expect(firstIssue({ currentMileage: 2_000_001 })).toMatchObject({
       field: 'currentMileage',
     });
+  });
+
+  it('ignora photoUrl: el cliente no puede elegir la foto', () => {
+    const created = createVehicleSchema.parse(
+      validInput({ photoUrl: '/uploads/vehicles/ajena.png' }),
+    );
+    const updated = updateVehicleSchema.parse(
+      validInput({ photoUrl: 'https://otro.example.com/foto.png' }),
+    );
+
+    expect(created).not.toHaveProperty('photoUrl');
+    expect(updated).not.toHaveProperty('photoUrl');
   });
 });

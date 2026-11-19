@@ -64,7 +64,7 @@ export class VehiclesService {
           model: input.model,
           year: input.year,
           currentMileage: input.currentMileage,
-          photoUrl: input.photoUrl ?? null,
+          photoUrl: null,
         });
         await manager.save(vehicle);
 

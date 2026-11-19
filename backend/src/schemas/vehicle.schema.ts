@@ -46,11 +46,6 @@ export const createVehicleSchema = z
       .int('El kilometraje debe ser un número entero.')
       .min(0, 'El kilometraje no puede ser negativo.')
       .max(MAX_MILEAGE, `El kilometraje no puede superar ${MAX_MILEAGE}.`),
-    photoUrl: z
-      .string({ invalid_type_error: 'La foto no es válida.' })
-      .max(512, 'La ruta de la foto no puede tener más de 512 caracteres.')
-      .nullable()
-      .optional(),
   })
   .strip();
 

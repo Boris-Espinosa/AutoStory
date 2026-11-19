@@ -13,8 +13,44 @@ export type ImageExtension = 'jpg' | 'png' | 'webp';
 export const UPLOADS_DIR = env.uploadsDir;
 export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
 export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
+export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
 
-const S3_KEY_PREFIX = 'vehicles/';
+const VEHICLE_PHOTO_FILE = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+
+/**
+ * Legacy es cualquier valor que no sea una key nueva: URL pública antigua,
+ * ruta /uploads o texto arbitrario que el cliente pudo guardar antes.
+ */
+export function isLegacyPhotoUrl(photo: string | null): boolean {
+  if (photo === null) {
+    return false;
+  }
+
+  const [root, owner, vehicle, file, ...rest] = photo.split('/');
+
+  return !(
+    rest.length === 0 &&
+    root === 'vehicles' &&
+    owner.length > 0 &&
+    vehicle.length > 0 &&
+    ![owner, vehicle].some(
+      (part) => part === '.' || part === '..' || part.includes('\\'),
+    ) &&
+    VEHICLE_PHOTO_FILE.test(file)
+  );
+}
+
+export function isVehiclePhotoKey(
+  photo: string | null,
+  userId: string,
+  vehicleId: string,
+): photo is string {
+  return (
+    photo !== null &&
+    !isLegacyPhotoUrl(photo) &&
+    photo.startsWith(`${VEHICLE_PHOTO_KEY_PREFIX}${userId}/${vehicleId}/`)
+  );
+}
 
 const CONTENT_TYPES: Record<ImageExtension, string> = {
   jpg: 'image/jpeg',
@@ -41,11 +77,12 @@ type S3Sender = Pick<S3Client, 'send'>;
 /**
  * Guarda fotos en disco (desarrollo) o en un bucket S3 compatible (R2).
  * `save` recibe un Buffer (modo s3, Multer en memoria) o una ruta temporal
- * (modo disk, Multer en disco) y devuelve la photoUrl a guardar.
+ * (modo disk, Multer en disco) y devuelve la key a guardar en la BD.
  */
 export class StorageService {
   private readonly s3: S3Sender | null;
   private readonly s3Config: Required<S3StorageConfig> | null;
+  private readonly publicBase: string;
 
   constructor(
     private readonly config: StorageConfig,
@@ -54,6 +91,7 @@ export class StorageService {
     if (config.driver === 'disk') {
       this.s3 = null;
       this.s3Config = null;
+      this.publicBase = '/uploads/';
       return;
     }
 
@@ -77,6 +115,7 @@ export class StorageService {
     }
 
     this.s3Config = required as Required<S3StorageConfig>;
+    this.publicBase = `${this.s3Config.publicBaseUrl}/`;
     this.s3 =
       client ??
       new S3Client({
@@ -93,8 +132,14 @@ export class StorageService {
   async save(
     source: Buffer | string,
     extension: ImageExtension,
+    userId: string,
+    vehicleId: string,
   ): Promise<string> {
-    const key = `${S3_KEY_PREFIX}${randomUUID()}.${extension}`;
+    const key = `${VEHICLE_PHOTO_KEY_PREFIX}${userId}/${vehicleId}/${randomUUID()}.${extension}`;
+
+    if (isLegacyPhotoUrl(key)) {
+      throw new Error('Identificadores de foto inválidos.');
+    }
 
     if (this.s3) {
       if (!Buffer.isBuffer(source)) {
@@ -110,48 +155,53 @@ export class StorageService {
         }),
       );
 
-      return `${this.s3Config!.publicBaseUrl}/${key}`;
+      return key;
     }
 
     if (typeof source !== 'string') {
       throw new Error('El driver disk requiere un archivo temporal.');
     }
 
-    const finalPath = source.replace(/\.tmp$/, `.${extension}`);
+    const relativePath = key.slice(VEHICLE_PHOTO_KEY_PREFIX.length);
+    const finalPath = path.join(VEHICLE_UPLOADS_DIR, relativePath);
+    await fs.mkdir(path.dirname(finalPath), { recursive: true });
     await fs.rename(source, finalPath);
 
-    return `${VEHICLE_PHOTO_URL_PREFIX}${path.basename(finalPath)}`;
+    return key;
   }
 
-  /** Borra la foto si pertenece a este almacenamiento; ignora el resto. */
-  async remove(photoUrl: string | null): Promise<void> {
-    if (!photoUrl) {
+  /** Devuelve la URL pública de una key; los valores legacy pasan tal cual. */
+  publicUrl(photo: string | null): string | null {
+    if (photo === null || isLegacyPhotoUrl(photo)) {
+      return photo;
+    }
+
+    return `${this.publicBase}${photo}`;
+  }
+
+  /** Borra solo keys nuevas de este almacenamiento; ignora datos legacy. */
+  async remove(photoKey: string | null): Promise<void> {
+    if (photoKey === null || isLegacyPhotoUrl(photoKey)) {
       return;
     }
 
     if (this.s3) {
-      const base = `${this.s3Config!.publicBaseUrl}/`;
-
-      if (!photoUrl.startsWith(base)) {
-        return;
-      }
-
       await this.s3.send(
         new DeleteObjectCommand({
           Bucket: this.s3Config!.bucket,
-          Key: photoUrl.slice(base.length),
+          Key: photoKey,
         }),
       );
       return;
     }
 
-    if (!photoUrl.startsWith(VEHICLE_PHOTO_URL_PREFIX)) {
-      return;
-    }
-
-    await fs.rm(path.join(VEHICLE_UPLOADS_DIR, path.basename(photoUrl)), {
-      force: true,
-    });
+    await fs.rm(
+      path.join(
+        VEHICLE_UPLOADS_DIR,
+        photoKey.slice(VEHICLE_PHOTO_KEY_PREFIX.length),
+      ),
+      { force: true },
+    );
   }
 }
 

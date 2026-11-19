@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { AsyncRouteHandler } from '../common/async-handler';
 import { HttpError } from '../common/http-error';
-import { error as logError } from '../common/logger';
+import { error as logError, warn as logWarn } from '../common/logger';
 import { ValidationError, formatIssues } from '../common/validation-pipe';
 import {
   detectImageExtension,
@@ -26,9 +26,38 @@ import { PartsService } from '../services/parts.service';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 import { VehiclesService } from '../services/vehicles.service';
 import { VinDecoderService } from '../services/vin-decoder.service';
-import { StorageService } from '../storage/storage.service';
+import {
+  isLegacyPhotoUrl,
+  isVehiclePhotoKey,
+  StorageService,
+} from '../storage/storage.service';
 import { BRANDS } from '../utils/brands';
 import { vinParamSchema } from '../utils/vin';
+
+function withPublicPhotoUrl<T extends { photoUrl: string | null }>(
+  vehicle: T,
+  storage: StorageService,
+): T {
+  return { ...vehicle, photoUrl: storage.publicUrl(vehicle.photoUrl) };
+}
+
+async function removeOwnedPhoto(
+  storage: StorageService,
+  photo: string | null,
+  userId: string,
+  vehicleId: string,
+): Promise<void> {
+  if (photo === null) {
+    return;
+  }
+
+  if (isLegacyPhotoUrl(photo) || !isVehiclePhotoKey(photo, userId, vehicleId)) {
+    logWarn('No se borró la foto: la key no pertenece al vehículo.');
+    return;
+  }
+
+  await storage.remove(photo);
+}
 
 export function listBrands(): AsyncRouteHandler {
   return async (_req, res) => {
@@ -38,22 +67,24 @@ export function listBrands(): AsyncRouteHandler {
 
 export function listVehicles(
   vehiclesService: VehiclesService,
+  storage: StorageService,
 ): AsyncRouteHandler {
   return async (req, res) => {
     const vehicles = await vehiclesService.listByUser(req.auth.userId);
-    res.json(vehicles);
+    res.json(vehicles.map((vehicle) => withPublicPhotoUrl(vehicle, storage)));
   };
 }
 
 export function createVehicle(
   vehiclesService: VehiclesService,
+  storage: StorageService,
 ): AsyncRouteHandler {
   return async (req, res) => {
     const vehicle = await vehiclesService.create(
       req.auth.userId,
       req.body as CreateVehicleInput,
     );
-    res.status(201).json(vehicle);
+    res.status(201).json(withPublicPhotoUrl(vehicle, storage));
   };
 }
 
@@ -208,6 +239,7 @@ export function createAppointmentForVehicle(
 
 export function updateVehicle(
   vehiclesService: VehiclesService,
+  storage: StorageService,
 ): AsyncRouteHandler {
   return async (req, res) => {
     const vehicle = await vehiclesService.update(
@@ -215,7 +247,7 @@ export function updateVehicle(
       req.params.vehicleId,
       req.body as UpdateVehicleInput,
     );
-    res.json(vehicle);
+    res.json(withPublicPhotoUrl(vehicle, storage));
   };
 }
 
@@ -224,12 +256,17 @@ export function removeVehicle(
   storage: StorageService,
 ): AsyncRouteHandler {
   return async (req, res) => {
-    const photoUrl = await vehiclesService.remove(req.params.vehicleId);
+    const photoKey = await vehiclesService.remove(req.params.vehicleId);
 
     // La foto se borra solo una vez confirmada la transacción, y un fallo del
     // almacenamiento no cambia la respuesta: el vehículo ya no existe.
     try {
-      await storage.remove(photoUrl);
+      await removeOwnedPhoto(
+        storage,
+        photoKey,
+        req.auth.userId,
+        req.params.vehicleId,
+      );
     } catch (error) {
       logError(
         'No se pudo borrar la foto del vehículo.',
@@ -269,10 +306,15 @@ export function uploadVehiclePhoto(
       throw error;
     }
 
-    let photoUrl: string;
+    let photoKey: string;
 
     try {
-      photoUrl = await storage.save(source, extension);
+      photoKey = await storage.save(
+        source,
+        extension,
+        req.auth.userId,
+        req.params.vehicleId,
+      );
     } catch (error) {
       logPhotoUploadFailure(error, req.file);
       throw new HttpError(500, 'No se pudo guardar la foto.');
@@ -281,16 +323,26 @@ export function uploadVehiclePhoto(
     let previous: string | null;
 
     try {
-      previous = await vehiclesService.setPhoto(req.params.vehicleId, photoUrl);
+      previous = await vehiclesService.setPhoto(req.params.vehicleId, photoKey);
     } catch (error) {
       // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
-      await storage.remove(photoUrl).catch(() => undefined);
+      await removeOwnedPhoto(
+        storage,
+        photoKey,
+        req.auth.userId,
+        req.params.vehicleId,
+      ).catch(() => undefined);
       logPhotoUploadFailure(error, req.file);
       throw error;
     }
 
     try {
-      await storage.remove(previous);
+      await removeOwnedPhoto(
+        storage,
+        previous,
+        req.auth.userId,
+        req.params.vehicleId,
+      );
     } catch (error) {
       logError(
         'No se pudo borrar la foto anterior del vehículo.',
@@ -298,7 +350,7 @@ export function uploadVehiclePhoto(
       );
     }
 
-    res.json({ photoUrl });
+    res.json({ photoUrl: storage.publicUrl(photoKey) });
   };
 }
 
@@ -313,7 +365,12 @@ export function removeVehiclePhoto(
     );
 
     try {
-      await storage.remove(previous);
+      await removeOwnedPhoto(
+        storage,
+        previous,
+        req.auth.userId,
+        req.params.vehicleId,
+      );
     } catch (error) {
       logError(
         'No se pudo borrar la foto del vehículo.',

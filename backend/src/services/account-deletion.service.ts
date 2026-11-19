@@ -2,7 +2,11 @@ import { createClerkClient } from '@clerk/backend';
 import { DataSource } from 'typeorm';
 import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
-import { StorageService } from '../storage/storage.service';
+import {
+  isLegacyPhotoUrl,
+  isVehiclePhotoKey,
+  StorageService,
+} from '../storage/storage.service';
 
 const CLERK_TIMEOUT_MS = 5_000;
 
@@ -81,15 +85,16 @@ export class AccountDeletionService {
 
   async deleteAccount(userId: string): Promise<{ clerkDeleted: boolean }> {
     const photoUrls = await this.dataSource.transaction(async (manager) => {
-      const owned: { photoUrl: string | null }[] = await manager.query(
-        `SELECT vehicle."photo_url" AS "photoUrl"
+      const owned: { id: string; photoUrl: string | null }[] =
+        await manager.query(
+          `SELECT vehicle."id", vehicle."photo_url" AS "photoUrl"
            FROM "vehicles" vehicle
            JOIN "user_vehicles" membership
              ON membership."vehicle_id" = vehicle."id"
           WHERE membership."user_id" = $1
             AND membership."role" = 'OWNER'`,
-        [userId],
-      );
+          [userId],
+        );
 
       // La cascada borra membresías, repuestos, mantenciones, citas,
       // recordatorios, notificaciones y solicitudes de esos vehículos.
@@ -117,9 +122,18 @@ export class AccountDeletionService {
 
       await manager.query(`DELETE FROM "users" WHERE "id" = $1`, [userId]);
 
-      return owned
-        .map(({ photoUrl }) => photoUrl)
-        .filter((photoUrl): photoUrl is string => photoUrl !== null);
+      return owned.flatMap(({ id, photoUrl }) => {
+        if (photoUrl === null) {
+          return [];
+        }
+
+        if (isLegacyPhotoUrl(photoUrl) || !isVehiclePhotoKey(photoUrl, userId, id)) {
+          warn('No se borró una foto que no pertenece al vehículo eliminado.');
+          return [];
+        }
+
+        return [photoUrl];
+      });
     });
 
     for (const photoUrl of photoUrls) {

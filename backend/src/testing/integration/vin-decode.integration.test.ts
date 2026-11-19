@@ -1,9 +1,9 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource } from 'typeorm';
-import { createApp } from '../app';
-import { User } from '../entities/User';
-import { createTestDataSource } from './test-data-source';
+import { createApp } from '../../app';
+import { User } from '../../entities/User';
+import { createTestDataSource } from '../test-data-source';
 
 const VIN = 'WVWZZZ6RZMY000001';
 

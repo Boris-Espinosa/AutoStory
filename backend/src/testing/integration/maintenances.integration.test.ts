@@ -1,10 +1,10 @@
 import { DataSource, Repository } from 'typeorm';
-import { Maintenance } from '../entities/Maintenance';
-import { Part } from '../entities/Part';
-import { User } from '../entities/User';
-import { Vehicle } from '../entities/Vehicle';
-import { Workshop } from '../entities/Workshop';
-import { createTestDataSource } from './test-data-source';
+import { Maintenance } from '../../entities/Maintenance';
+import { Part } from '../../entities/Part';
+import { User } from '../../entities/User';
+import { Vehicle } from '../../entities/Vehicle';
+import { Workshop } from '../../entities/Workshop';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let users: Repository<User>;

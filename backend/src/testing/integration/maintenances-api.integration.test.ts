@@ -1,12 +1,12 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource, Repository } from 'typeorm';
-import { createApp } from '../app';
-import { Maintenance } from '../entities/Maintenance';
-import { Part } from '../entities/Part';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { createTestDataSource } from './test-data-source';
+import { createApp } from '../../app';
+import { Maintenance } from '../../entities/Maintenance';
+import { Part } from '../../entities/Part';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let server: Server;

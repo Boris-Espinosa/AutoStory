@@ -1,9 +1,9 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { DataSource } from 'typeorm';
-import { createAuthMiddleware } from '../middlewares/auth.middleware';
-import { env } from '../config/env';
-import { User } from '../entities/User';
-import { createTestDataSource } from './test-data-source';
+import { createAuthMiddleware } from '../../middlewares/auth.middleware';
+import { env } from '../../config/env';
+import { User } from '../../entities/User';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let auth: RequestHandler;

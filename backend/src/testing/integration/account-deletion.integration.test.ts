@@ -3,27 +3,27 @@ import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import path from 'path';
 import { DataSource, Repository } from 'typeorm';
-import { createApp } from '../app';
-import { Clock } from '../common/clock';
-import { Appointment, AppointmentStatus } from '../entities/Appointment';
-import { AppointmentReminder } from '../entities/AppointmentReminder';
-import { Maintenance } from '../entities/Maintenance';
+import { createApp } from '../../app';
+import { Clock } from '../../common/clock';
+import { Appointment, AppointmentStatus } from '../../entities/Appointment';
+import { AppointmentReminder } from '../../entities/AppointmentReminder';
+import { Maintenance } from '../../entities/Maintenance';
 import {
   Notification,
   NotificationType,
-} from '../entities/Notification';
-import { Part } from '../entities/Part';
+} from '../../entities/Notification';
+import { Part } from '../../entities/Part';
 import {
   SharingRequest,
   SharingRequestStatus,
-} from '../entities/SharingRequest';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { Vehicle } from '../entities/Vehicle';
-import { Workshop } from '../entities/Workshop';
-import { ClerkUserDeleter } from '../services/account-deletion.service';
-import { VEHICLE_UPLOADS_DIR } from '../middlewares/photo-upload';
-import { createTestDataSource } from './test-data-source';
+} from '../../entities/SharingRequest';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { Vehicle } from '../../entities/Vehicle';
+import { Workshop } from '../../entities/Workshop';
+import { ClerkUserDeleter } from '../../services/account-deletion.service';
+import { VEHICLE_UPLOADS_DIR } from '../../middlewares/photo-upload';
+import { createTestDataSource } from '../test-data-source';
 
 class FakeClerkUserDeleter implements ClerkUserDeleter {
   readonly calls: string[] = [];

@@ -1,20 +1,20 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource, Repository } from 'typeorm';
-import { createApp } from '../app';
-import { Clock } from '../common/clock';
-import { Appointment, AppointmentStatus } from '../entities/Appointment';
-import { AppointmentReminder } from '../entities/AppointmentReminder';
-import { Notification, NotificationType } from '../entities/Notification';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { Vehicle } from '../entities/Vehicle';
-import { Workshop } from '../entities/Workshop';
+import { createApp } from '../../app';
+import { Clock } from '../../common/clock';
+import { Appointment, AppointmentStatus } from '../../entities/Appointment';
+import { AppointmentReminder } from '../../entities/AppointmentReminder';
+import { Notification, NotificationType } from '../../entities/Notification';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { Vehicle } from '../../entities/Vehicle';
+import { Workshop } from '../../entities/Workshop';
 import {
   cleanupExpiredData,
   processDueReminders,
-} from '../jobs/reminder-worker';
-import { createTestDataSource } from './test-data-source';
+} from '../../jobs/reminder-worker';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let server: Server;

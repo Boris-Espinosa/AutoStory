@@ -2,16 +2,16 @@ import { clerkMiddleware, getAuth } from '@clerk/express';
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource } from 'typeorm';
-import { createApp } from '../app';
-import { Clock } from '../common/clock';
-import { env } from '../config/env';
-import { User } from '../entities/User';
+import { createApp } from '../../app';
+import { Clock } from '../../common/clock';
+import { env } from '../../config/env';
+import { User } from '../../entities/User';
 import {
   ProfileInfo,
   ProfileProvider,
   UserSyncService,
-} from '../services/user-sync.service';
-import { createTestDataSource } from './test-data-source';
+} from '../../services/user-sync.service';
+import { createTestDataSource } from '../test-data-source';
 
 jest.mock('@clerk/express', () => ({
   clerkMiddleware: jest.fn(

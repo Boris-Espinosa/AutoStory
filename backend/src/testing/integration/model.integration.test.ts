@@ -1,15 +1,15 @@
 import { DataSource, Repository } from 'typeorm';
-import { Maintenance } from '../entities/Maintenance';
-import { Part } from '../entities/Part';
+import { Maintenance } from '../../entities/Maintenance';
+import { Part } from '../../entities/Part';
 import {
   SharingRequest,
   SharingRequestStatus,
-} from '../entities/SharingRequest';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { Vehicle } from '../entities/Vehicle';
-import { VehicleAccessService } from '../services/vehicle-access.service';
-import { createTestDataSource } from './test-data-source';
+} from '../../entities/SharingRequest';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { Vehicle } from '../../entities/Vehicle';
+import { VehicleAccessService } from '../../services/vehicle-access.service';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let users: Repository<User>;

@@ -1,15 +1,15 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource, Repository } from 'typeorm';
-import { createApp } from '../app';
-import { Clock } from '../common/clock';
-import { Appointment, AppointmentStatus } from '../entities/Appointment';
-import { AppointmentReminder } from '../entities/AppointmentReminder';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { Vehicle } from '../entities/Vehicle';
-import { Workshop } from '../entities/Workshop';
-import { createTestDataSource } from './test-data-source';
+import { createApp } from '../../app';
+import { Clock } from '../../common/clock';
+import { Appointment, AppointmentStatus } from '../../entities/Appointment';
+import { AppointmentReminder } from '../../entities/AppointmentReminder';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { Vehicle } from '../../entities/Vehicle';
+import { Workshop } from '../../entities/Workshop';
+import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
 let server: Server;

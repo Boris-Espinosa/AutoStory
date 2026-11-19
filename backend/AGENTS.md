@@ -16,7 +16,7 @@
 - Errores: usa el manejador central (`src/common/error-handler.ts`, `src/common/http-error.ts`); códigos HTTP correctos (400 validación, 401/403 auth, 404, 409 conflicto).
 - Consultas: usa TypeORM/repositorios y SQL crudo con parámetros (`$1`, etc.) para valores. Identificadores dinámicos solo desde metadatos internos con `quoteIdentifier`/nombres de columna (`src/services/user-adoption.service.ts`, `src/utils/part-cost.ts`), nunca desde entrada de usuario.
 - Helpers puros (normalización, formato de texto, fecha) van en `src/utils/`; integraciones con I/O externo (por ejemplo `vin-decoder.service.ts`) van en `src/services/`. El storage se queda en `src/storage/`.
-- Tests unitarios: `*.test.ts` junto al archivo probado. Tests de integración: `src/testing/*.integration.test.ts` con sus fixtures.
+- Tests unitarios: `src/testing/unit/*.test.ts`. Tests de integración: `src/testing/integration/*.integration.test.ts`. Los helpers compartidos (`setup-env.ts`, `test-data-source.ts`, `vin.ts`) siguen en `src/testing/`.
 - Variables de entorno: léelas solo desde `src/config/env.ts` y documenta las nuevas en `.env.example`.
 
 ## Cuidado
@@ -46,7 +46,7 @@ backend/src/
 ├── entities/      10 entidades (sin cambios de contenido)
 ├── migrations/    6 migraciones (sin cambios)
 ├── storage/       storage.service.ts (+test)
-├── testing/       12 *.integration.test.ts + setup-env.ts + test-data-source.ts + vin.ts
+├── testing/       unit/ (9 *.test.ts), integration/ (12 *.integration.test.ts), setup-env.ts, test-data-source.ts, vin.ts
 └── types/         express.d.ts
 ```
 

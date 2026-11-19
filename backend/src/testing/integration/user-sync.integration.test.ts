@@ -1,21 +1,21 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource, Repository } from 'typeorm';
-import { createApp } from '../app';
-import { Clock } from '../common/clock';
-import { Maintenance } from '../entities/Maintenance';
-import { Notification, NotificationType } from '../entities/Notification';
-import { User } from '../entities/User';
-import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
-import { Vehicle } from '../entities/Vehicle';
-import { Workshop } from '../entities/Workshop';
-import { adoptUser } from '../services/user-adoption.service';
+import { createApp } from '../../app';
+import { Clock } from '../../common/clock';
+import { Maintenance } from '../../entities/Maintenance';
+import { Notification, NotificationType } from '../../entities/Notification';
+import { User } from '../../entities/User';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
+import { Vehicle } from '../../entities/Vehicle';
+import { Workshop } from '../../entities/Workshop';
+import { adoptUser } from '../../services/user-adoption.service';
 import {
   ProfileInfo,
   ProfileProvider,
   UserSyncService,
-} from '../services/user-sync.service';
-import { createTestDataSource } from './test-data-source';
+} from '../../services/user-sync.service';
+import { createTestDataSource } from '../test-data-source';
 
 class FakeProfileProvider implements ProfileProvider {
   profile: ProfileInfo | Error = {

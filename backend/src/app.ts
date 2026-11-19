@@ -27,8 +27,8 @@ import {
 } from './services/account-deletion.service';
 import { createMeRouter } from './controllers/me.controller';
 import { RemindersService } from './services/reminders.service';
-import { createNotificationsRouter } from './notifications/notifications.controller';
-import { NotificationsService } from './notifications/notifications.service';
+import { createNotificationsRouter } from './controllers/notifications.controller';
+import { NotificationsService } from './services/notifications.service';
 import { createPartsRouter } from './controllers/parts.controller';
 import { PartsService } from './services/parts.service';
 import { createVehiclesRouter } from './vehicles/vehicles.controller';

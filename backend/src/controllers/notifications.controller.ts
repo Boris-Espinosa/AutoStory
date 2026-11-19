@@ -5,7 +5,7 @@ import {
   formatIssues,
 } from '../common/validation-pipe';
 import { listNotificationsQuerySchema } from '../schemas/notification.schema';
-import { NotificationsService } from './notifications.service';
+import { NotificationsService } from '../services/notifications.service';
 
 export function createNotificationsRouter(
   service: NotificationsService,

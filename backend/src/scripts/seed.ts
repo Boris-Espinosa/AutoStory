@@ -1,14 +1,14 @@
 import 'reflect-metadata';
 import { DeepPartial } from 'typeorm';
-import { error as logError, info } from './common/logger';
-import { env } from './config/env';
-import { AppDataSource } from './db/data-source';
-import { Maintenance } from './entities/Maintenance';
-import { Part } from './entities/Part';
-import { User } from './entities/User';
-import { UserVehicle, UserVehicleRole } from './entities/UserVehicle';
-import { Vehicle } from './entities/Vehicle';
-import { Workshop } from './entities/Workshop';
+import { error as logError, info } from '../common/logger';
+import { env } from '../config/env';
+import { AppDataSource } from '../db/data-source';
+import { Maintenance } from '../entities/Maintenance';
+import { Part } from '../entities/Part';
+import { User } from '../entities/User';
+import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
+import { Vehicle } from '../entities/Vehicle';
+import { Workshop } from '../entities/Workshop';
 
 const VEHICLE_A = '11111111-1111-4111-8111-111111111111';
 const VEHICLE_B = '22222222-2222-4222-8222-222222222222';

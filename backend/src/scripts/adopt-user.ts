@@ -1,8 +1,8 @@
 import 'reflect-metadata';
-import { error as logError, info } from './common/logger';
-import { env } from './config/env';
-import { AppDataSource } from './db/data-source';
-import { adoptUser } from './users/user-adoption.service';
+import { error as logError, info } from '../common/logger';
+import { env } from '../config/env';
+import { AppDataSource } from '../db/data-source';
+import { adoptUser } from '../users/user-adoption.service';
 
 const USAGE =
   'Uso: npm run dev:adopt -- <fromUserId> <toClerkUserId> [--dry-run]';

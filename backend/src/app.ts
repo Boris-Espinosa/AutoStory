@@ -37,7 +37,7 @@ import { VehiclesService } from './services/vehicles.service';
 import { UPLOADS_DIR } from './middlewares/photo-upload';
 import { VinDecoderService } from './services/vin-decoder.service';
 import { WorkshopService } from './services/workshop.service';
-import { createWorkshopsRouter } from './controllers/workshops.controller';
+import { createWorkshopsRouter } from './routes/workshops.routes';
 import {
   createStorageService,
   StorageService,

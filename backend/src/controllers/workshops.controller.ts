@@ -1,35 +1,19 @@
-import { RequestHandler, Router } from 'express';
-import { asyncHandler } from '../common/async-handler';
-import { validateBody } from '../common/validation-pipe';
-import { CreateWorkshopInput, createWorkshopSchema } from '../schemas/workshop.schema';
+import { AsyncRouteHandler } from '../common/async-handler';
+import { CreateWorkshopInput } from '../schemas/workshop.schema';
 import { WorkshopService } from '../services/workshop.service';
 
-export function createWorkshopsRouter(
-  service: WorkshopService,
-  auth: RequestHandler,
-): Router {
-  const router = Router();
+export function listWorkshops(service: WorkshopService): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(await service.listByUser(req.auth.userId));
+  };
+}
 
-  router.use(auth);
-
-  router.get(
-    '/',
-    asyncHandler(async (req, res) => {
-      res.json(await service.listByUser(req.auth.userId));
-    }),
-  );
-
-  router.post(
-    '/',
-    validateBody(createWorkshopSchema),
-    asyncHandler(async (req, res) => {
-      const workshop = await service.create(
-        req.auth.userId,
-        req.body as CreateWorkshopInput,
-      );
-      res.status(201).json(workshop);
-    }),
-  );
-
-  return router;
+export function createWorkshop(service: WorkshopService): AsyncRouteHandler {
+  return async (req, res) => {
+    const workshop = await service.create(
+      req.auth.userId,
+      req.body as CreateWorkshopInput,
+    );
+    res.status(201).json(workshop);
+  };
 }

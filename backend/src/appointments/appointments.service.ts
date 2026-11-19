@@ -15,7 +15,7 @@ import {
   appointmentNotificationTitle,
 } from '../notifications/messages';
 import { createNotifications, NotificationInput, recipientsFor } from '../notifications/notify';
-import { VehicleAccessService } from '../vehicles/vehicle-access.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 import {
   CreateAppointmentInput,
   DEFAULT_REMINDERS,

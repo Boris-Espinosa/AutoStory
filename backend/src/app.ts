@@ -32,7 +32,7 @@ import { NotificationsService } from './notifications/notifications.service';
 import { createPartsRouter } from './parts/parts.controller';
 import { PartsService } from './parts/parts.service';
 import { createVehiclesRouter } from './vehicles/vehicles.controller';
-import { VehicleAccessService } from './vehicles/vehicle-access.service';
+import { VehicleAccessService } from './services/vehicle-access.service';
 import { VehiclesService } from './vehicles/vehicles.service';
 import { UPLOADS_DIR } from './vehicles/photo-upload';
 import { VinDecoderService } from './vehicles/vin-decoder.service';

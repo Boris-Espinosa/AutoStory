@@ -3,7 +3,7 @@ import { asyncHandler } from '../common/async-handler';
 import { validateBody } from '../common/validation-pipe';
 import { CreatePartInput, createPartSchema } from './part.schema';
 import { PartsService } from './parts.service';
-import { VehicleAccessService } from '../vehicles/vehicle-access.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 
 export function createPartsRouter(
   service: PartsService,

@@ -38,7 +38,7 @@ import {
   requireVehicleMember,
   requireVehicleOwner,
 } from './vehicle-access.middleware';
-import { VehicleAccessService } from './vehicle-access.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 import {
   CreateVehicleInput,
   UpdateVehicleInput,

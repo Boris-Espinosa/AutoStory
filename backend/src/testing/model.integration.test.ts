@@ -8,7 +8,7 @@ import {
 import { User } from '../entities/User';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
-import { VehicleAccessService } from '../vehicles/vehicle-access.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 import { createTestDataSource } from './test-data-source';
 
 let dataSource: DataSource;

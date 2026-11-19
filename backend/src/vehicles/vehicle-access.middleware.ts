@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { asyncHandler } from '../common/async-handler';
-import { VehicleAccessService } from './vehicle-access.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 
 export function requireVehicleMember(
   access: VehicleAccessService,

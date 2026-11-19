@@ -5,7 +5,7 @@ import { asyncHandler } from '../common/async-handler';
 import { error as logError } from '../common/logger';
 import { env } from '../config/env';
 import { User } from '../entities/User';
-import { UserSyncService } from '../users/user-sync.service';
+import { UserSyncService } from '../services/user-sync.service';
 
 interface AuthMiddlewareOptions {
   users: Repository<User>;

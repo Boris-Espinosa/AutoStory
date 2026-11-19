@@ -10,7 +10,7 @@ import {
   ProfileInfo,
   ProfileProvider,
   UserSyncService,
-} from '../users/user-sync.service';
+} from '../services/user-sync.service';
 import { createTestDataSource } from './test-data-source';
 
 jest.mock('@clerk/express', () => ({

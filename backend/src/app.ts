@@ -46,7 +46,7 @@ import {
   ClerkProfileProvider,
   ProfileProvider,
   UserSyncService,
-} from './users/user-sync.service';
+} from './services/user-sync.service';
 
 export function createApp(
   dataSource: DataSource = AppDataSource,

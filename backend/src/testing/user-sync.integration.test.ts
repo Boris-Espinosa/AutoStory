@@ -9,12 +9,12 @@ import { User } from '../entities/User';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
 import { Workshop } from '../entities/Workshop';
-import { adoptUser } from '../users/user-adoption.service';
+import { adoptUser } from '../services/user-adoption.service';
 import {
   ProfileInfo,
   ProfileProvider,
   UserSyncService,
-} from '../users/user-sync.service';
+} from '../services/user-sync.service';
 import { createTestDataSource } from './test-data-source';
 
 class FakeProfileProvider implements ProfileProvider {

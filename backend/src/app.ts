@@ -18,18 +18,18 @@ import { UserVehicle } from './entities/UserVehicle';
 import { Vehicle } from './entities/Vehicle';
 import { Workshop } from './entities/Workshop';
 import { AppointmentService } from './services/appointments.service';
-import { createAppointmentsRouter } from './controllers/appointments.controller';
+import { createAppointmentsRouter } from './routes/appointments.routes';
 import { MaintenanceService } from './services/maintenance.service';
 import {
   AccountDeletionService,
   ClerkUserDeleter,
   ClerkUserDeleterService,
 } from './services/account-deletion.service';
-import { createMeRouter } from './controllers/me.controller';
+import { createMeRouter } from './routes/me.routes';
 import { RemindersService } from './services/reminders.service';
-import { createNotificationsRouter } from './controllers/notifications.controller';
+import { createNotificationsRouter } from './routes/notifications.routes';
 import { NotificationsService } from './services/notifications.service';
-import { createPartsRouter } from './controllers/parts.controller';
+import { createPartsRouter } from './routes/parts.routes';
 import { PartsService } from './services/parts.service';
 import { createVehiclesRouter } from './controllers/vehicles.controller';
 import { VehicleAccessService } from './services/vehicle-access.service';

@@ -1,67 +1,47 @@
-import { RequestHandler, Router } from 'express';
-import { asyncHandler } from '../common/async-handler';
-import {
-  ValidationError,
-  formatIssues,
-  validateBody,
-} from '../common/validation-pipe';
-import { UserSyncService } from '../services/user-sync.service';
-import { AccountDeletionService } from '../services/account-deletion.service';
-import { deleteAccountSchema } from '../schemas/account-deletion.schema';
+import { AsyncRouteHandler } from '../common/async-handler';
+import { ValidationError, formatIssues } from '../common/validation-pipe';
 import { listRemindersQuerySchema } from '../schemas/reminders.schema';
+import { AccountDeletionService } from '../services/account-deletion.service';
 import { RemindersService } from '../services/reminders.service';
+import { UserSyncService } from '../services/user-sync.service';
 
-export function createMeRouter(
-  service: RemindersService,
-  userSync: UserSyncService,
+export function getMe(userSync: UserSyncService): AsyncRouteHandler {
+  return async (req, res) => {
+    const user = await userSync.ensureLocalUser(req.auth.userId);
+
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      imageUrl: user.imageUrl,
+    });
+  };
+}
+
+export function deletionPreview(
   accountDeletion: AccountDeletionService,
-  auth: RequestHandler,
-): Router {
-  const router = Router();
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(await accountDeletion.preview(req.auth.userId));
+  };
+}
 
-  router.use(auth);
+export function deleteAccount(
+  accountDeletion: AccountDeletionService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(await accountDeletion.deleteAccount(req.auth.userId));
+  };
+}
 
-  router.get(
-    '/',
-    asyncHandler(async (req, res) => {
-      const user = await userSync.ensureLocalUser(req.auth.userId);
+export function listReminders(service: RemindersService): AsyncRouteHandler {
+  return async (req, res) => {
+    const parsed = listRemindersQuerySchema.safeParse(req.query);
 
-      res.json({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        imageUrl: user.imageUrl,
-      });
-    }),
-  );
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
 
-  router.get(
-    '/deletion-preview',
-    asyncHandler(async (req, res) => {
-      res.json(await accountDeletion.preview(req.auth.userId));
-    }),
-  );
-
-  router.delete(
-    '/',
-    validateBody(deleteAccountSchema),
-    asyncHandler(async (req, res) => {
-      res.json(await accountDeletion.deleteAccount(req.auth.userId));
-    }),
-  );
-
-  router.get(
-    '/reminders',
-    asyncHandler(async (req, res) => {
-      const parsed = listRemindersQuerySchema.safeParse(req.query);
-
-      if (!parsed.success) {
-        throw new ValidationError(formatIssues(parsed.error));
-      }
-
-      res.json(await service.listPending(req.auth.userId, parsed.data.limit));
-    }),
-  );
-
-  return router;
+    res.json(await service.listPending(req.auth.userId, parsed.data.limit));
+  };
 }

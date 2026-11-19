@@ -1,29 +1,16 @@
-import { RequestHandler, Router } from 'express';
-import { asyncHandler } from '../common/async-handler';
-import { validateBody } from '../common/validation-pipe';
-import { CreatePartInput, createPartSchema } from '../schemas/part.schema';
+import { AsyncRouteHandler } from '../common/async-handler';
+import { CreatePartInput } from '../schemas/part.schema';
 import { PartsService } from '../services/parts.service';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 
-export function createPartsRouter(
+export function createPart(
   service: PartsService,
   access: VehicleAccessService,
-  auth: RequestHandler,
-): Router {
-  const router = Router();
-
-  router.use(auth);
-
-  router.post(
-    '/',
-    validateBody(createPartSchema),
-    asyncHandler(async (req, res) => {
-      const input = req.body as CreatePartInput;
-      await access.assertMember(req.auth.userId, input.vehicleId);
-      const part = await service.create(input);
-      res.status(201).json(part);
-    }),
-  );
-
-  return router;
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const input = req.body as CreatePartInput;
+    await access.assertMember(req.auth.userId, input.vehicleId);
+    const part = await service.create(input);
+    res.status(201).json(part);
+  };
 }

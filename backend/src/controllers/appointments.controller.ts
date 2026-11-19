@@ -1,81 +1,65 @@
-import { RequestHandler, Router } from 'express';
-import { z } from 'zod';
-import { Clock } from '../common/clock';
-import { asyncHandler } from '../common/async-handler';
-import {
-  ValidationError,
-  formatIssues,
-  validateBody,
-} from '../common/validation-pipe';
+import { AsyncRouteHandler } from '../common/async-handler';
+import { ValidationError, formatIssues } from '../common/validation-pipe';
 import {
   UpdateAppointmentInput,
   listUserAppointmentsQuerySchema,
-  updateAppointmentSchema,
 } from '../schemas/appointment.schema';
 import { AppointmentService } from '../services/appointments.service';
 
-export function createAppointmentsRouter(
+export function listUserAppointments(
   service: AppointmentService,
-  auth: RequestHandler,
-  clock: Clock,
-): Router {
-  const router = Router();
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const parsed = listUserAppointmentsQuerySchema.safeParse(req.query);
 
-  router.use(auth);
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
 
-  router.get(
-    '/',
-    asyncHandler(async (req, res) => {
-      const parsed = listUserAppointmentsQuerySchema.safeParse(req.query);
+    res.json(await service.listForUser(req.auth.userId, parsed.data));
+  };
+}
 
-      if (!parsed.success) {
-        throw new ValidationError(formatIssues(parsed.error));
-      }
+export function getAppointment(
+  service: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(
+      await service.getOne(req.auth.userId, req.params.appointmentId),
+    );
+  };
+}
 
-      res.json(await service.listForUser(req.auth.userId, parsed.data));
-    }),
-  );
+export function updateAppointment(
+  service: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(
+      await service.update(
+        req.auth.userId,
+        req.params.appointmentId,
+        req.body as UpdateAppointmentInput,
+      ),
+    );
+  };
+}
 
-  router.get(
-    '/:appointmentId',
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.getOne(req.auth.userId, req.params.appointmentId),
-      );
-    }),
-  );
+export function cancelAppointment(
+  service: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(
+      await service.cancel(req.auth.userId, req.params.appointmentId),
+    );
+  };
+}
 
-  router.patch(
-    '/:appointmentId',
-    validateBody(z.lazy(() => updateAppointmentSchema(clock.now()))),
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.update(
-          req.auth.userId,
-          req.params.appointmentId,
-          req.body as UpdateAppointmentInput,
-        ),
-      );
-    }),
-  );
-
-  router.post(
-    '/:appointmentId/cancel',
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.cancel(req.auth.userId, req.params.appointmentId),
-      );
-    }),
-  );
-
-  router.post(
-    '/:appointmentId/complete',
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.complete(req.auth.userId, req.params.appointmentId),
-      );
-    }),
-  );
-
-  return router;
+export function completeAppointment(
+  service: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(
+      await service.complete(req.auth.userId, req.params.appointmentId),
+    );
+  };
 }

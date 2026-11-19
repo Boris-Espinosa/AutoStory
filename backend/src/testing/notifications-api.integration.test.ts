@@ -13,7 +13,7 @@ import { Workshop } from '../entities/Workshop';
 import {
   cleanupExpiredData,
   processDueReminders,
-} from '../notifications/reminder-worker';
+} from '../jobs/reminder-worker';
 import { createTestDataSource } from './test-data-source';
 
 let dataSource: DataSource;

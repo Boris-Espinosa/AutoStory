@@ -7,7 +7,7 @@ import { Workshop } from '../entities/Workshop';
 import {
   appointmentNotificationBody,
   appointmentNotificationTitle,
-} from '../notifications/messages';
+} from '../utils/messages';
 
 export interface PendingReminderView {
   reminderId: string;

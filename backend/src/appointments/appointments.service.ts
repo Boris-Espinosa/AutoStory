@@ -13,8 +13,8 @@ import { Workshop } from '../entities/Workshop';
 import {
   appointmentNotificationBody,
   appointmentNotificationTitle,
-} from '../notifications/messages';
-import { createNotifications, NotificationInput, recipientsFor } from '../notifications/notify';
+} from '../utils/messages';
+import { createNotifications, NotificationInput, recipientsFor } from '../jobs/notify';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 import {
   CreateAppointmentInput,

@@ -18,7 +18,7 @@ import { Vehicle } from '../entities/Vehicle';
 import {
   appointmentNotificationBody,
   appointmentNotificationTitle,
-} from './messages';
+} from '../utils/messages';
 import { createNotifications, recipientsFor } from './notify';
 
 const BATCH_SIZE = 100;

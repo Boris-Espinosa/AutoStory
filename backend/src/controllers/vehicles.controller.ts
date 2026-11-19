@@ -1,381 +1,326 @@
 import { promises as fs } from 'fs';
-import { RequestHandler, Router } from 'express';
-import rateLimit from 'express-rate-limit';
-import { z } from 'zod';
-import { Clock } from '../common/clock';
-import { asyncHandler } from '../common/async-handler';
-import { error as logError } from '../common/logger';
-import {
-  ValidationError,
-  formatIssues,
-  validateBody,
-} from '../common/validation-pipe';
+import { AsyncRouteHandler } from '../common/async-handler';
 import { HttpError } from '../common/http-error';
-import { StorageService } from '../storage/storage.service';
-import {
-  CreateAppointmentInput,
-  createAppointmentSchema,
-  listAppointmentsQuerySchema,
-} from '../schemas/appointment.schema';
-import { AppointmentService } from '../services/appointments.service';
-import { MaintenanceService } from '../services/maintenance.service';
-import {
-  CreateMaintenanceInput,
-  UpdateMaintenanceInput,
-  createMaintenanceSchema,
-  listMaintenancesQuerySchema,
-  updateMaintenanceSchema,
-} from '../schemas/maintenance.schema';
-import { PartsService } from '../services/parts.service';
-import { BRANDS } from '../utils/brands';
+import { error as logError } from '../common/logger';
+import { ValidationError, formatIssues } from '../common/validation-pipe';
 import {
   detectImageExtension,
   logPhotoUploadFailure,
-  photoUploadErrors,
-  vehiclePhotoUpload,
 } from '../middlewares/photo-upload';
 import {
-  requireVehicleMember,
-  requireVehicleOwner,
-} from '../middlewares/vehicle-access.middleware';
-import { VehicleAccessService } from '../services/vehicle-access.service';
+  CreateAppointmentInput,
+  listAppointmentsQuerySchema,
+} from '../schemas/appointment.schema';
+import {
+  CreateMaintenanceInput,
+  UpdateMaintenanceInput,
+  listMaintenancesQuerySchema,
+} from '../schemas/maintenance.schema';
 import {
   CreateVehicleInput,
   UpdateVehicleInput,
-  createVehicleSchema,
-  updateVehicleSchema,
 } from '../schemas/vehicle.schema';
-import { vinParamSchema } from '../utils/vin';
+import { AppointmentService } from '../services/appointments.service';
+import { MaintenanceService } from '../services/maintenance.service';
+import { PartsService } from '../services/parts.service';
+import { VehicleAccessService } from '../services/vehicle-access.service';
 import { VehiclesService } from '../services/vehicles.service';
 import { VinDecoderService } from '../services/vin-decoder.service';
+import { StorageService } from '../storage/storage.service';
+import { BRANDS } from '../utils/brands';
+import { vinParamSchema } from '../utils/vin';
 
-export function createVehiclesRouter(
-  vehiclesService: VehiclesService,
-  partsService: PartsService,
-  maintenanceService: MaintenanceService,
-  appointmentService: AppointmentService,
-  access: VehicleAccessService,
-  auth: RequestHandler,
-  vinDecoder: VinDecoderService,
-  clock: Clock,
-  storage: StorageService,
-): Router {
-  const router = Router();
-
-  router.use(auth);
-  const member = requireVehicleMember(access);
-  const owner = requireVehicleOwner(access);
-
-  const vinDecodeLimiter = rateLimit({
-    windowMs: 60 * 1_000,
-    limit: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => req.auth.userId,
-    handler: (_req, res) => {
-      res.status(429).json({
-        message: 'Demasiadas consultas de VIN. Intenta de nuevo en un minuto.',
-      });
-    },
-  });
-
-  // Antes de cualquier ruta con :vehicleId.
-  router.get('/brands', (_req, res) => {
+export function listBrands(): AsyncRouteHandler {
+  return async (_req, res) => {
     res.json(BRANDS);
-  });
+  };
+}
 
-  router.get(
-    '/',
-    asyncHandler(async (req, res) => {
-      const vehicles = await vehiclesService.listByUser(req.auth.userId);
-      res.json(vehicles);
-    }),
-  );
+export function listVehicles(
+  vehiclesService: VehiclesService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const vehicles = await vehiclesService.listByUser(req.auth.userId);
+    res.json(vehicles);
+  };
+}
 
-  router.post(
-    '/',
-    validateBody(createVehicleSchema),
-    asyncHandler(async (req, res) => {
-      const vehicle = await vehiclesService.create(
+export function createVehicle(
+  vehiclesService: VehiclesService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const vehicle = await vehiclesService.create(
+      req.auth.userId,
+      req.body as CreateVehicleInput,
+    );
+    res.status(201).json(vehicle);
+  };
+}
+
+export function decodeVin(vinDecoder: VinDecoderService): AsyncRouteHandler {
+  return async (req, res) => {
+    const parsed = vinParamSchema.safeParse(req.params.vin);
+
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
+
+    res.json(await vinDecoder.decode(parsed.data));
+  };
+}
+
+export function listVehicleParts(
+  partsService: PartsService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const result = await partsService.listByVehicle(req.params.vehicleId, {
+      unassigned: req.query.unassigned === 'true',
+    });
+    res.json(result);
+  };
+}
+
+export function getExpensesSummary(
+  partsService: PartsService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const summary = await partsService.getExpensesSummary(req.params.vehicleId);
+    res.json(summary);
+  };
+}
+
+export function listMaintenances(
+  maintenanceService: MaintenanceService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const parsed = listMaintenancesQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
+
+    const result = await maintenanceService.list(
+      req.params.vehicleId,
+      parsed.data,
+    );
+    res.json(result);
+  };
+}
+
+export function createMaintenance(
+  maintenanceService: MaintenanceService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const maintenance = await maintenanceService.create(
+      req.auth.userId,
+      req.params.vehicleId,
+      req.body as CreateMaintenanceInput,
+    );
+    res.status(201).json(maintenance);
+  };
+}
+
+export function getMaintenance(
+  maintenanceService: MaintenanceService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const maintenance = await maintenanceService.getOne(
+      req.params.vehicleId,
+      req.params.maintenanceId,
+    );
+    res.json(maintenance);
+  };
+}
+
+export function updateMaintenance(
+  maintenanceService: MaintenanceService,
+  access: VehicleAccessService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const membership = await access.assertMember(
+      req.auth.userId,
+      req.params.vehicleId,
+    );
+
+    const maintenance = await maintenanceService.update(
+      req.auth.userId,
+      membership.role,
+      req.params.vehicleId,
+      req.params.maintenanceId,
+      req.body as UpdateMaintenanceInput,
+    );
+    res.json(maintenance);
+  };
+}
+
+export function removeMaintenance(
+  maintenanceService: MaintenanceService,
+  access: VehicleAccessService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const membership = await access.assertMember(
+      req.auth.userId,
+      req.params.vehicleId,
+    );
+
+    await maintenanceService.remove(
+      req.auth.userId,
+      membership.role,
+      req.params.vehicleId,
+      req.params.maintenanceId,
+    );
+    res.status(204).end();
+  };
+}
+
+export function listAppointmentsForVehicle(
+  appointmentService: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const parsed = listAppointmentsQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
+
+    res.json(
+      await appointmentService.listForVehicle(
         req.auth.userId,
-        req.body as CreateVehicleInput,
-      );
-      res.status(201).json(vehicle);
-    }),
-  );
-
-  router.get(
-    '/vin/:vin/decode',
-    vinDecodeLimiter,
-    asyncHandler(async (req, res) => {
-      const parsed = vinParamSchema.safeParse(req.params.vin);
-
-      if (!parsed.success) {
-        throw new ValidationError(formatIssues(parsed.error));
-      }
-
-      res.json(await vinDecoder.decode(parsed.data));
-    }),
-  );
-
-  router.get(
-    '/:vehicleId/parts',
-    member,
-    asyncHandler(async (req, res) => {
-      const result = await partsService.listByVehicle(req.params.vehicleId, {
-        unassigned: req.query.unassigned === 'true',
-      });
-      res.json(result);
-    }),
-  );
-
-  router.get(
-    '/:vehicleId/expenses/summary',
-    member,
-    asyncHandler(async (req, res) => {
-      const summary = await partsService.getExpensesSummary(req.params.vehicleId);
-      res.json(summary);
-    }),
-  );
-
-  router.get(
-    '/:vehicleId/maintenances',
-    member,
-    asyncHandler(async (req, res) => {
-      const parsed = listMaintenancesQuerySchema.safeParse(req.query);
-
-      if (!parsed.success) {
-        throw new ValidationError(formatIssues(parsed.error));
-      }
-
-      const result = await maintenanceService.list(
         req.params.vehicleId,
         parsed.data,
+      ),
+    );
+  };
+}
+
+export function createAppointmentForVehicle(
+  appointmentService: AppointmentService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const appointment = await appointmentService.create(
+      req.auth.userId,
+      req.params.vehicleId,
+      req.body as CreateAppointmentInput,
+    );
+    res.status(201).json(appointment);
+  };
+}
+
+export function updateVehicle(
+  vehiclesService: VehiclesService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const vehicle = await vehiclesService.update(
+      req.auth.userId,
+      req.params.vehicleId,
+      req.body as UpdateVehicleInput,
+    );
+    res.json(vehicle);
+  };
+}
+
+export function removeVehicle(
+  vehiclesService: VehiclesService,
+  storage: StorageService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const photoUrl = await vehiclesService.remove(req.params.vehicleId);
+
+    // La foto se borra solo una vez confirmada la transacción, y un fallo del
+    // almacenamiento no cambia la respuesta: el vehículo ya no existe.
+    try {
+      await storage.remove(photoUrl);
+    } catch (error) {
+      logError(
+        'No se pudo borrar la foto del vehículo.',
+        error instanceof Error ? error.name : undefined,
       );
-      res.json(result);
-    }),
-  );
+    }
 
-  router.post(
-    '/:vehicleId/maintenances',
-    member,
-    validateBody(createMaintenanceSchema),
-    asyncHandler(async (req, res) => {
-      const maintenance = await maintenanceService.create(
-        req.auth.userId,
-        req.params.vehicleId,
-        req.body as CreateMaintenanceInput,
-      );
-      res.status(201).json(maintenance);
-    }),
-  );
+    res.status(204).end();
+  };
+}
 
-  router.get(
-    '/:vehicleId/maintenances/:maintenanceId',
-    member,
-    asyncHandler(async (req, res) => {
-      const maintenance = await maintenanceService.getOne(
-        req.params.vehicleId,
-        req.params.maintenanceId,
-      );
-      res.json(maintenance);
-    }),
-  );
+export function uploadVehiclePhoto(
+  vehiclesService: VehiclesService,
+  storage: StorageService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    if (!req.file) {
+      const error = new HttpError(400, 'La foto es obligatoria.');
+      logPhotoUploadFailure(error, req.file);
+      throw error;
+    }
 
-  router.patch(
-    '/:vehicleId/maintenances/:maintenanceId',
-    member,
-    validateBody(updateMaintenanceSchema),
-    asyncHandler(async (req, res) => {
-      const membership = await access.assertMember(
-        req.auth.userId,
-        req.params.vehicleId,
-      );
+    const source: Buffer | string = req.file.buffer ?? req.file.path;
+    // El tipo MIME (vacío o application/octet-stream) no decide nada: la
+    // firma real del archivo es la que valida el formato.
+    const extension = await detectImageExtension(source);
 
-      const maintenance = await maintenanceService.update(
-        req.auth.userId,
-        membership.role,
-        req.params.vehicleId,
-        req.params.maintenanceId,
-        req.body as UpdateMaintenanceInput,
-      );
-      res.json(maintenance);
-    }),
-  );
-
-  router.delete(
-    '/:vehicleId/maintenances/:maintenanceId',
-    member,
-    asyncHandler(async (req, res) => {
-      const membership = await access.assertMember(
-        req.auth.userId,
-        req.params.vehicleId,
-      );
-
-      await maintenanceService.remove(
-        req.auth.userId,
-        membership.role,
-        req.params.vehicleId,
-        req.params.maintenanceId,
-      );
-      res.status(204).end();
-    }),
-  );
-
-  router.get(
-    '/:vehicleId/appointments',
-    member,
-    asyncHandler(async (req, res) => {
-      const parsed = listAppointmentsQuerySchema.safeParse(req.query);
-
-      if (!parsed.success) {
-        throw new ValidationError(formatIssues(parsed.error));
+    if (!extension) {
+      if (typeof source === 'string') {
+        await fs.rm(source, { force: true });
       }
-
-      res.json(
-        await appointmentService.listForVehicle(
-          req.auth.userId,
-          req.params.vehicleId,
-          parsed.data,
-        ),
+      const error = new HttpError(
+        400,
+        'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
       );
-    }),
-  );
+      logPhotoUploadFailure(error, req.file);
+      throw error;
+    }
 
-  router.post(
-    '/:vehicleId/appointments',
-    member,
-    validateBody(z.lazy(() => createAppointmentSchema(clock.now()))),
-    asyncHandler(async (req, res) => {
-      const appointment = await appointmentService.create(
-        req.auth.userId,
-        req.params.vehicleId,
-        req.body as CreateAppointmentInput,
+    let photoUrl: string;
+
+    try {
+      photoUrl = await storage.save(source, extension);
+    } catch (error) {
+      logPhotoUploadFailure(error, req.file);
+      throw new HttpError(500, 'No se pudo guardar la foto.');
+    }
+
+    let previous: string | null;
+
+    try {
+      previous = await vehiclesService.setPhoto(req.params.vehicleId, photoUrl);
+    } catch (error) {
+      // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
+      await storage.remove(photoUrl).catch(() => undefined);
+      logPhotoUploadFailure(error, req.file);
+      throw error;
+    }
+
+    try {
+      await storage.remove(previous);
+    } catch (error) {
+      logError(
+        'No se pudo borrar la foto anterior del vehículo.',
+        error instanceof Error ? error.name : undefined,
       );
-      res.status(201).json(appointment);
-    }),
-  );
+    }
 
-  router.patch(
-    '/:vehicleId',
-    owner,
-    validateBody(updateVehicleSchema),
-    asyncHandler(async (req, res) => {
-      const vehicle = await vehiclesService.update(
-        req.auth.userId,
-        req.params.vehicleId,
-        req.body as UpdateVehicleInput,
+    res.json({ photoUrl });
+  };
+}
+
+export function removeVehiclePhoto(
+  vehiclesService: VehiclesService,
+  storage: StorageService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    const previous = await vehiclesService.setPhoto(
+      req.params.vehicleId,
+      null,
+    );
+
+    try {
+      await storage.remove(previous);
+    } catch (error) {
+      logError(
+        'No se pudo borrar la foto del vehículo.',
+        error instanceof Error ? error.name : undefined,
       );
-      res.json(vehicle);
-    }),
-  );
+    }
 
-  router.delete(
-    '/:vehicleId',
-    owner,
-    asyncHandler(async (req, res) => {
-      const photoUrl = await vehiclesService.remove(req.params.vehicleId);
-
-      // La foto se borra solo una vez confirmada la transacción, y un fallo del
-      // almacenamiento no cambia la respuesta: el vehículo ya no existe.
-      try {
-        await storage.remove(photoUrl);
-      } catch (error) {
-        logError(
-          'No se pudo borrar la foto del vehículo.',
-          error instanceof Error ? error.name : undefined,
-        );
-      }
-
-      res.status(204).end();
-    }),
-  );
-
-  // El orden importa: auth, dueño y solo después Multer. Así quien no es
-  // dueño no llega a escribir archivos en el disco.
-  router.post(
-    '/:vehicleId/photo',
-    owner,
-    vehiclePhotoUpload.single('photo'),
-    photoUploadErrors,
-    asyncHandler(async (req, res) => {
-      if (!req.file) {
-        const error = new HttpError(400, 'La foto es obligatoria.');
-        logPhotoUploadFailure(error, req.file);
-        throw error;
-      }
-
-      const source: Buffer | string = req.file.buffer ?? req.file.path;
-      // El tipo MIME (vacío o application/octet-stream) no decide nada: la
-      // firma real del archivo es la que valida el formato.
-      const extension = await detectImageExtension(source);
-
-      if (!extension) {
-        if (typeof source === 'string') {
-          await fs.rm(source, { force: true });
-        }
-        const error = new HttpError(
-          400,
-          'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
-        );
-        logPhotoUploadFailure(error, req.file);
-        throw error;
-      }
-
-      let photoUrl: string;
-
-      try {
-        photoUrl = await storage.save(source, extension);
-      } catch (error) {
-        logPhotoUploadFailure(error, req.file);
-        throw new HttpError(500, 'No se pudo guardar la foto.');
-      }
-
-      let previous: string | null;
-
-      try {
-        previous = await vehiclesService.setPhoto(req.params.vehicleId, photoUrl);
-      } catch (error) {
-        // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
-        await storage.remove(photoUrl).catch(() => undefined);
-        logPhotoUploadFailure(error, req.file);
-        throw error;
-      }
-
-      try {
-        await storage.remove(previous);
-      } catch (error) {
-        logError(
-          'No se pudo borrar la foto anterior del vehículo.',
-          error instanceof Error ? error.name : undefined,
-        );
-      }
-
-      res.json({ photoUrl });
-    }),
-  );
-
-  router.delete(
-    '/:vehicleId/photo',
-    owner,
-    asyncHandler(async (req, res) => {
-      const previous = await vehiclesService.setPhoto(
-        req.params.vehicleId,
-        null,
-      );
-
-      try {
-        await storage.remove(previous);
-      } catch (error) {
-        logError(
-          'No se pudo borrar la foto del vehículo.',
-          error instanceof Error ? error.name : undefined,
-        );
-      }
-
-      res.status(204).end();
-    }),
-  );
-
-  return router;
+    res.status(204).end();
+  };
 }

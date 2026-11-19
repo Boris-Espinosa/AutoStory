@@ -31,7 +31,7 @@ import { createNotificationsRouter } from './routes/notifications.routes';
 import { NotificationsService } from './services/notifications.service';
 import { createPartsRouter } from './routes/parts.routes';
 import { PartsService } from './services/parts.service';
-import { createVehiclesRouter } from './controllers/vehicles.controller';
+import { createVehiclesRouter } from './routes/vehicles.routes';
 import { VehicleAccessService } from './services/vehicle-access.service';
 import { VehiclesService } from './services/vehicles.service';
 import { UPLOADS_DIR } from './middlewares/photo-upload';

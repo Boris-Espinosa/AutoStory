@@ -6,7 +6,7 @@ import {
   StorageConfig,
   StorageService,
   VEHICLE_UPLOADS_DIR,
-} from './storage.service';
+} from '../../storage/storage.service';
 
 const S3_CONFIG: StorageConfig = {
   driver: 's3',

@@ -2,7 +2,7 @@
 // vez y backend/.env real restaura las claves que este test borra.
 jest.mock('dotenv/config', () => ({}));
 
-type EnvModule = typeof import('./env');
+type EnvModule = typeof import('../../config/env');
 
 function loadEnv(
   overrides: Record<string, string | undefined>,
@@ -22,7 +22,7 @@ function loadEnv(
   jest.resetModules();
 
   try {
-    return require('./env') as EnvModule;
+    return require('../../config/env') as EnvModule;
   } finally {
     for (const [key, value] of previous) {
       if (value === undefined) {

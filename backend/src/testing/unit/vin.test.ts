@@ -2,8 +2,8 @@ import {
   normalizeVin,
   validateVin,
   vinSchema,
-} from './vin';
-import { makeVin } from '../testing/vin';
+} from '../../utils/vin';
+import { makeVin } from '../vin';
 
 const VALID_VIN = '1HGCM82633A004352';
 const EUROPEAN_VIN = 'WVWZZZ6RZMY000001';

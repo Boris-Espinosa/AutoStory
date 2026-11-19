@@ -1,4 +1,4 @@
-import { VinDecoderService } from './vin-decoder.service';
+import { VinDecoderService } from '../../services/vin-decoder.service';
 
 const VIN = '1HGCM82633A004352';
 const OTHER_VIN = 'WVWZZZ6RZMY000001';

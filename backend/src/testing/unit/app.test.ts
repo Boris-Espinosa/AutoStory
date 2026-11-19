@@ -1,7 +1,7 @@
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource } from 'typeorm';
-import { createApp } from './app';
+import { createApp } from '../../app';
 
 type UserLookup = () => Promise<unknown>;
 

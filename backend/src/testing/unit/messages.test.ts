@@ -1,7 +1,7 @@
 import {
   appointmentNotificationBody,
   appointmentNotificationTitle,
-} from './messages';
+} from '../../utils/messages';
 
 describe('appointmentNotificationTitle', () => {
   it('devuelve el título en español de cada aviso', () => {

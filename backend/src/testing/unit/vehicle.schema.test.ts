@@ -1,4 +1,4 @@
-import { createVehicleSchema } from './vehicle.schema';
+import { createVehicleSchema } from '../../schemas/vehicle.schema';
 
 const VIN = 'WVWZZZ6RZMY000001';
 const CURRENT_YEAR = new Date().getFullYear();

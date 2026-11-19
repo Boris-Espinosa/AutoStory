@@ -3,7 +3,7 @@ import {
   isValidLicensePlate,
   normalizeLicensePlate,
   plateSchema,
-} from './license-plate';
+} from '../../utils/license-plate';
 
 describe('normalizeLicensePlate', () => {
   it('pasa a mayúsculas y quita solo espacios, puntos, guiones y punto medio', () => {

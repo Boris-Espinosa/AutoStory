@@ -1,5 +1,5 @@
-import { matchBrand } from './brands';
-import { normalizeVin, validateVin } from './vin';
+import { matchBrand } from '../utils/brands';
+import { normalizeVin, validateVin } from '../utils/vin';
 
 const NHTSA_URL =
   'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues';

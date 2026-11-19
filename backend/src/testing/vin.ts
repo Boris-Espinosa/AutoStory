@@ -1,4 +1,4 @@
-import { calculateVinCheckDigit } from '../vehicles/vin';
+import { calculateVinCheckDigit } from '../utils/vin';
 
 /**
  * Completa un VIN norteamericano. El prefijo aporta los caracteres y el dígito

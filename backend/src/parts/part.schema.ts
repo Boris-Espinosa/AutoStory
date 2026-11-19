@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ISO_DATE_REGEX, isValidIsoDate } from '../common/iso-date';
+import { ISO_DATE_REGEX, isValidIsoDate } from '../utils/iso-date';
 import { PART_CATEGORIES } from '../entities/Part';
 
 export const createPartSchema = z

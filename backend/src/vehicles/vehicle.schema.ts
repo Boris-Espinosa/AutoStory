@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { BRANDS } from './brands';
-import { plateSchema } from './license-plate';
-import { vinSchema } from './vin';
+import { BRANDS } from '../utils/brands';
+import { plateSchema } from '../utils/license-plate';
+import { vinSchema } from '../utils/vin';
 
 const MIN_YEAR = 1950;
 const MAX_YEAR = new Date().getFullYear() + 1;

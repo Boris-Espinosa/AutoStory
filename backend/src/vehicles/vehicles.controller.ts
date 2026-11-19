@@ -27,7 +27,7 @@ import {
   updateMaintenanceSchema,
 } from '../maintenances/maintenance.schema';
 import { PartsService } from '../parts/parts.service';
-import { BRANDS } from './brands';
+import { BRANDS } from '../utils/brands';
 import {
   detectImageExtension,
   logPhotoUploadFailure,
@@ -45,7 +45,7 @@ import {
   createVehicleSchema,
   updateVehicleSchema,
 } from './vehicle.schema';
-import { vinParamSchema } from './vin';
+import { vinParamSchema } from '../utils/vin';
 import { VehiclesService } from './vehicles.service';
 import { VinDecoderService } from './vin-decoder.service';
 

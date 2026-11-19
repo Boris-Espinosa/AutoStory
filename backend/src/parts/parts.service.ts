@@ -2,7 +2,7 @@ import { IsNull, Repository } from 'typeorm';
 import { Maintenance } from '../entities/Maintenance';
 import { Part } from '../entities/Part';
 import { HttpError } from '../common/http-error';
-import { partCostSql } from './part-cost';
+import { partCostSql } from '../utils/part-cost';
 import { CreatePartInput } from './part.schema';
 
 export interface PartsRepositories {

@@ -10,7 +10,7 @@ import { User } from '../entities/User';
 import { UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
 import { Workshop } from '../entities/Workshop';
-import { partCostSql, partTotalCost } from '../parts/part-cost';
+import { partCostSql, partTotalCost } from '../utils/part-cost';
 import {
   CreateMaintenanceInput,
   ListMaintenancesQuery,

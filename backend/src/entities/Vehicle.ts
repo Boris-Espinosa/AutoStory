@@ -5,8 +5,8 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { normalizeLicensePlate } from '../vehicles/license-plate';
-import { normalizeVin } from '../vehicles/vin';
+import { normalizeLicensePlate } from '../utils/license-plate';
+import { normalizeVin } from '../utils/vin';
 
 const vinTransformer = {
   to: (value: string | null): string | null => normalizeVin(value),

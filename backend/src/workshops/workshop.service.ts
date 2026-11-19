@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { Workshop } from '../entities/Workshop';
 import { HttpError } from '../common/http-error';
-import { CreateWorkshopInput } from './workshop.schema';
+import { CreateWorkshopInput } from '../schemas/workshop.schema';
 
 const DUPLICATE_NAME_MESSAGE = 'Ya tienes un taller con ese nombre';
 

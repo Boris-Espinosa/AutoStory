@@ -4,7 +4,7 @@ import {
   ValidationError,
   formatIssues,
 } from '../common/validation-pipe';
-import { listNotificationsQuerySchema } from './notification.schema';
+import { listNotificationsQuerySchema } from '../schemas/notification.schema';
 import { NotificationsService } from './notifications.service';
 
 export function createNotificationsRouter(

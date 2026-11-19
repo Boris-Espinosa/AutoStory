@@ -16,7 +16,7 @@ import {
   CreateAppointmentInput,
   createAppointmentSchema,
   listAppointmentsQuerySchema,
-} from '../appointments/appointment.schema';
+} from '../schemas/appointment.schema';
 import { AppointmentService } from '../appointments/appointments.service';
 import { MaintenanceService } from '../maintenances/maintenance.service';
 import {
@@ -25,7 +25,7 @@ import {
   createMaintenanceSchema,
   listMaintenancesQuerySchema,
   updateMaintenanceSchema,
-} from '../maintenances/maintenance.schema';
+} from '../schemas/maintenance.schema';
 import { PartsService } from '../parts/parts.service';
 import { BRANDS } from '../utils/brands';
 import {
@@ -44,7 +44,7 @@ import {
   UpdateVehicleInput,
   createVehicleSchema,
   updateVehicleSchema,
-} from './vehicle.schema';
+} from '../schemas/vehicle.schema';
 import { vinParamSchema } from '../utils/vin';
 import { VehiclesService } from './vehicles.service';
 import { VinDecoderService } from './vin-decoder.service';

@@ -15,7 +15,7 @@ import {
   CreateMaintenanceInput,
   ListMaintenancesQuery,
   UpdateMaintenanceInput,
-} from './maintenance.schema';
+} from '../schemas/maintenance.schema';
 
 export interface MaintenanceRepositories {
   maintenances: Repository<Maintenance>;

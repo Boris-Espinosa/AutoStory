@@ -7,8 +7,8 @@ import {
 } from '../common/validation-pipe';
 import { UserSyncService } from '../users/user-sync.service';
 import { AccountDeletionService } from './account-deletion.service';
-import { deleteAccountSchema } from './account-deletion.schema';
-import { listRemindersQuerySchema } from './reminders.schema';
+import { deleteAccountSchema } from '../schemas/account-deletion.schema';
+import { listRemindersQuerySchema } from '../schemas/reminders.schema';
 import { RemindersService } from './reminders.service';
 
 export function createMeRouter(

@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
 import { HttpError } from '../common/http-error';
-import { CreateVehicleInput } from './vehicle.schema';
+import { CreateVehicleInput } from '../schemas/vehicle.schema';
 
 export interface VehiclesRepositories {
   userVehicles: Repository<UserVehicle>;

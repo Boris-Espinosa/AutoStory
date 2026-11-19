@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { Maintenance } from '../entities/Maintenance';
 import { Part } from '../entities/Part';
-import { CreatePartInput } from './part.schema';
+import { CreatePartInput } from '../schemas/part.schema';
 import { PartsService } from './parts.service';
 
 const VEHICLE_ID = '11111111-1111-4111-8111-111111111111';

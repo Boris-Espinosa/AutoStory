@@ -22,7 +22,7 @@ import {
   ListAppointmentsQuery,
   ListUserAppointmentsQuery,
   UpdateAppointmentInput,
-} from './appointment.schema';
+} from '../schemas/appointment.schema';
 
 export interface AppointmentRepositories {
   appointments: Repository<Appointment>;

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Clock } from '../common/clock';
 import { HttpError } from '../common/http-error';
 import { Notification, NotificationType } from '../entities/Notification';
-import { ListNotificationsQuery } from './notification.schema';
+import { ListNotificationsQuery } from '../schemas/notification.schema';
 
 export interface NotificationView {
   id: string;

@@ -1,7 +1,7 @@
 import { RequestHandler, Router } from 'express';
 import { asyncHandler } from '../common/async-handler';
 import { validateBody } from '../common/validation-pipe';
-import { CreateWorkshopInput, createWorkshopSchema } from './workshop.schema';
+import { CreateWorkshopInput, createWorkshopSchema } from '../schemas/workshop.schema';
 import { WorkshopService } from './workshop.service';
 
 export function createWorkshopsRouter(

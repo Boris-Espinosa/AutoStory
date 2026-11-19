@@ -11,7 +11,7 @@ import {
   UpdateAppointmentInput,
   listUserAppointmentsQuerySchema,
   updateAppointmentSchema,
-} from './appointment.schema';
+} from '../schemas/appointment.schema';
 import { AppointmentService } from './appointments.service';
 
 export function createAppointmentsRouter(

@@ -10,7 +10,7 @@
 - Lint: no hay script `lint` configurado en `package.json`.
 
 ## Convenciones
-- Estructura por capas en la raíz de `src/` (en migración, ver abajo): `routes/*.routes.ts` registra los endpoints y se monta en `src/app.ts`; `controllers/*.controller.ts` contiene solo handlers; la lógica va en `services/*.service.ts`.
+- Estructura por capas en la raíz de `src/`: `routes/*.routes.ts` registra los endpoints y se monta en `src/app.ts`; `controllers/*.controller.ts` contiene solo handlers; la lógica va en `services/*.service.ts`.
 - Dependencias en un solo sentido: `routes → controllers → services → utils/common/entities`; los middlewares pueden importar services. Un service nunca importa `routes`, `controllers` ni `middlewares`.
 - Valida toda entrada externa (body, params, query) con zod (`src/common/validation-pipe.ts`, esquemas en `src/schemas/*.schema.ts`) antes de usarla.
 - Errores: usa el manejador central (`src/common/error-handler.ts`, `src/common/http-error.ts`); códigos HTTP correctos (400 validación, 401/403 auth, 404, 409 conflicto).
@@ -22,8 +22,8 @@
 ## Cuidado
 - Antes de cambiar una entidad o tabla, explícame el impacto sobre los datos existentes.
 
-## Estructura objetivo (en migración)
-Árbol final de `src/` según `docs/refactor-plan.md`. Estructura actual en transición; no refleja aún las rutas reales de los archivos.
+## Estructura objetivo
+Árbol final de `src/` según `docs/refactor-plan.md`.
 
 ```
 backend/src/

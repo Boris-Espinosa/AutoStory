@@ -18,7 +18,7 @@ import {
   listAppointmentsQuerySchema,
 } from '../schemas/appointment.schema';
 import { AppointmentService } from '../appointments/appointments.service';
-import { MaintenanceService } from '../maintenances/maintenance.service';
+import { MaintenanceService } from '../services/maintenance.service';
 import {
   CreateMaintenanceInput,
   UpdateMaintenanceInput,

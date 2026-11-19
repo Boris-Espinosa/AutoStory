@@ -19,7 +19,7 @@ import { Vehicle } from './entities/Vehicle';
 import { Workshop } from './entities/Workshop';
 import { AppointmentService } from './appointments/appointments.service';
 import { createAppointmentsRouter } from './appointments/appointments.controller';
-import { MaintenanceService } from './maintenances/maintenance.service';
+import { MaintenanceService } from './services/maintenance.service';
 import {
   AccountDeletionService,
   ClerkUserDeleter,

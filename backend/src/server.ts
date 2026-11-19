@@ -5,7 +5,7 @@ import { error as logError, info } from './common/logger';
 import { env } from './config/env';
 import { AppDataSource } from './db/data-source';
 import { startReminderWorker } from './notifications/reminder-worker';
-import { UPLOADS_DIR } from './vehicles/photo-upload';
+import { UPLOADS_DIR } from './middlewares/photo-upload';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 

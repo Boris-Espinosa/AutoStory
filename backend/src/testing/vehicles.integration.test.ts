@@ -8,7 +8,7 @@ import { User } from '../entities/User';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
 import { createStorageService } from '../storage/storage.service';
-import { VEHICLE_UPLOADS_DIR } from '../vehicles/photo-upload';
+import { VEHICLE_UPLOADS_DIR } from '../middlewares/photo-upload';
 import { createTestDataSource } from './test-data-source';
 
 const VIN = 'WVWZZZ6RZMY000001';

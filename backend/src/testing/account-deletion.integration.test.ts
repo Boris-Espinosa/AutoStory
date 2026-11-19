@@ -22,7 +22,7 @@ import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { Vehicle } from '../entities/Vehicle';
 import { Workshop } from '../entities/Workshop';
 import { ClerkUserDeleter } from '../me/account-deletion.service';
-import { VEHICLE_UPLOADS_DIR } from '../vehicles/photo-upload';
+import { VEHICLE_UPLOADS_DIR } from '../middlewares/photo-upload';
 import { createTestDataSource } from './test-data-source';
 
 class FakeClerkUserDeleter implements ClerkUserDeleter {

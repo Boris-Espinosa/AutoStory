@@ -33,11 +33,11 @@ import {
   logPhotoUploadFailure,
   photoUploadErrors,
   vehiclePhotoUpload,
-} from './photo-upload';
+} from '../middlewares/photo-upload';
 import {
   requireVehicleMember,
   requireVehicleOwner,
-} from './vehicle-access.middleware';
+} from '../middlewares/vehicle-access.middleware';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 import {
   CreateVehicleInput,

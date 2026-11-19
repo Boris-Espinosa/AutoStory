@@ -2,7 +2,7 @@ import { RequestHandler, Router } from 'express';
 import { asyncHandler } from '../common/async-handler';
 import { validateBody } from '../common/validation-pipe';
 import { CreatePartInput, createPartSchema } from '../schemas/part.schema';
-import { PartsService } from './parts.service';
+import { PartsService } from '../services/parts.service';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 
 export function createPartsRouter(

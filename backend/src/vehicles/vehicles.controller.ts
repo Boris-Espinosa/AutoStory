@@ -26,7 +26,7 @@ import {
   listMaintenancesQuerySchema,
   updateMaintenanceSchema,
 } from '../schemas/maintenance.schema';
-import { PartsService } from '../parts/parts.service';
+import { PartsService } from '../services/parts.service';
 import { BRANDS } from '../utils/brands';
 import {
   detectImageExtension,

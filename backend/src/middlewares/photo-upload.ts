@@ -18,6 +18,9 @@ export {
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
+// 12 bytes bastan para las tres firmas (WebP necesita RIFF....WEBP).
+const SIGNATURE_BYTES = 12;
+
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true }).catch(() => undefined);
@@ -96,7 +99,20 @@ export function logPhotoUploadFailure(
 export async function detectImageExtension(
   source: Buffer | string,
 ): Promise<ImageExtension | null> {
-  const header = Buffer.isBuffer(source) ? source : await fs.readFile(source);
+  let header: Buffer;
+
+  if (Buffer.isBuffer(source)) {
+    header = source.subarray(0, SIGNATURE_BYTES);
+  } else {
+    const buffer = Buffer.alloc(SIGNATURE_BYTES);
+    const handle = await fs.open(source, 'r');
+    try {
+      const { bytesRead } = await handle.read(buffer, 0, SIGNATURE_BYTES, 0);
+      header = buffer.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  }
 
   if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
     return 'jpg';

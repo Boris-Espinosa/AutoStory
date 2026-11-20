@@ -45,6 +45,8 @@ export function buildDataSourceOptions(): DataSourceOptions {
   const sslOptions = buildDatabaseSslOptions({
     url: env.databaseUrl,
     ssl: env.database.ssl,
+    insecure: env.database.sslInsecure,
+    nodeEnv: env.nodeEnv,
   });
 
   return {

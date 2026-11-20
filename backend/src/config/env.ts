@@ -33,6 +33,7 @@ const envSchema = z
       .url('DATABASE_URL debe ser una URL válida.')
       .optional(),
     DATABASE_SSL: z.enum(['true', 'false']).default('false'),
+    DATABASE_SSL_INSECURE: z.enum(['true', 'false']).default('false'),
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
     TEST_DATABASE_URL: z
       .string()
@@ -196,6 +197,7 @@ export const env = {
   },
   database: {
     ssl: parsed.data.DATABASE_SSL === 'true',
+    sslInsecure: parsed.data.DATABASE_SSL_INSECURE === 'true',
     poolMax: parsed.data.DATABASE_POOL_MAX,
   },
   uploadsDir: path.resolve(

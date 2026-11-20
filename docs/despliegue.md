@@ -95,3 +95,43 @@ registran en los logs.
   mantén el disco montado para las fotos antiguas.
 - No expongas `S3_ACCESS_KEY_ID` ni `S3_SECRET_ACCESS_KEY` en el frontend:
   el navegador solo necesita la URL pública.
+
+## Antes de escalar a más de una instancia
+
+Hoy corre una sola instancia de la API. Los tres puntos siguientes no fallan en
+ese escenario, pero sí al levantar varias réplicas.
+
+### 1. Migraciones en el arranque
+
+- **Ubicación:** `backend/package.json`, script `start:prod` (línea 14), que
+  ejecuta `dist/db/run-migrations.js` antes de `dist/server.js`; código en
+  `backend/src/db/run-migrations.ts`.
+- **Problema:** con varios procesos arrancando a la vez, las migraciones pueden
+  ejecutarse en paralelo contra la misma base de datos.
+- **Por qué hoy no afecta:** solo hay un proceso que arranca y las corre una vez.
+- **Solución recomendada:** sacar las migraciones del arranque y dejarlas como
+  un paso explícito del despliegue, o bien ejecutarlas con un lock que solo
+  permita a una instancia correrlas.
+
+### 2. Limitador de consultas VIN en memoria
+
+- **Ubicación:** `backend/src/routes/vehicles.routes.ts`, líneas 68-79
+  (`vinDecodeLimiter`, con `express-rate-limit` y su almacén en memoria por
+  defecto), aplicado a la ruta `/vin/:vin/decode`.
+- **Problema:** cada proceso cuenta sus propias solicitudes; con N réplicas el límite
+  efectivo por usuario es N veces mayor (20 por minuto por proceso).
+- **Por qué hoy no afecta:** con una sola instancia hay un único contador.
+- **Solución recomendada:** usar un almacén compartido para el rate limit, o
+  aplicar el límite en el proxy/capa de entrada frente a todas las réplicas.
+
+### 3. Contador de fallos del reminder worker en memoria
+
+- **Ubicación:** `backend/src/jobs/reminder-worker.ts`, mapa
+  `consecutiveFailures` (línea 31), usado al registrar y descartar fallos
+  (líneas 105-120 y 147-163).
+- **Problema:** el contador queda repartido entre procesos y se pierde al
+  reiniciar, así que el descarto tras fallos seguidos deja de ser confiable.
+- **Por qué hoy no afecta:** una sola instancia concentra todos los intentos,
+  aunque ya se reinicia con el contador en cero.
+- **Solución recomendada:** guardar el contador de fallos en la base de datos
+  para que sea compartido y persista entre reinicios.

@@ -1,4 +1,5 @@
 import { createClerkClient } from '@clerk/backend';
+import { isClerkAPIResponseError } from '@clerk/backend/errors';
 import { DataSource } from 'typeorm';
 import { HttpError } from '../common/http-error';
 import { error as logError, warn } from '../common/logger';
@@ -29,6 +30,24 @@ export class ClerkUserDeleterService implements ClerkUserDeleter {
     this.client ??= createClerkClient({ secretKey: env.auth.secretKey });
     await this.client.users.deleteUser(userId);
   }
+}
+
+function isClerkUserNotFound(error: unknown): boolean {
+  if (!isClerkAPIResponseError(error)) {
+    return false;
+  }
+
+  const clerkError = error as {
+    status?: number;
+    errors?: { code?: string }[];
+  };
+
+  return (
+    clerkError.status === 404 &&
+    (clerkError.errors ?? []).some(
+      ({ code }) => code === 'resource_not_found',
+    )
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -152,6 +171,11 @@ export class AccountDeletionService {
       await withTimeout(this.clerk.deleteUser(userId), CLERK_TIMEOUT_MS);
       return true;
     } catch (cause) {
+      if (isClerkUserNotFound(cause)) {
+        warn('El usuario ya no existe en Clerk; se trata como éxito.');
+        return true;
+      }
+
       logError(message, cause instanceof Error ? cause.name : undefined);
       throw new HttpError(500, message);
     }

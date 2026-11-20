@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { buildDatabaseSslOptions } from '../config/database-ssl';
 import { env } from '../config/env';
 import { Appointment } from '../entities/Appointment';
 import { AppointmentReminder } from '../entities/AppointmentReminder';
@@ -41,16 +42,21 @@ export const MIGRATIONS = [
 ];
 
 export function buildDataSourceOptions(): DataSourceOptions {
+  const sslOptions = buildDatabaseSslOptions({
+    url: env.databaseUrl,
+    ssl: env.database.ssl,
+  });
+
   return {
     type: 'postgres',
     // Los imports de src/migrations se compilan junto al resto a dist/migrations.
     migrations: MIGRATIONS,
-    url: env.databaseUrl,
+    url: sslOptions.url,
     entities: ENTITIES,
     // Solo migraciones: sincronizar automáticamente puede perder datos.
     synchronize: false,
     logging: false,
-    ssl: env.database.ssl ? { rejectUnauthorized: false } : false,
+    ssl: sslOptions.ssl,
     extra: { max: env.database.poolMax },
   };
 }

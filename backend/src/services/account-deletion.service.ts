@@ -1,5 +1,6 @@
 import { createClerkClient } from '@clerk/backend';
 import { DataSource } from 'typeorm';
+import { HttpError } from '../common/http-error';
 import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
 import { isVehiclePhotoKey, StorageService } from '../storage/storage.service';
@@ -144,15 +145,15 @@ export class AccountDeletionService {
   }
 
   private async deleteFromClerk(userId: string): Promise<boolean> {
+    const message =
+      'No se pudo completar la eliminación en Clerk. Vuelve a intentarlo.';
+
     try {
       await withTimeout(this.clerk.deleteUser(userId), CLERK_TIMEOUT_MS);
       return true;
-    } catch {
-      // Los datos locales ya no existen; sin ids ni datos personales.
-      logError(
-        'No se pudo eliminar la cuenta en Clerk; la eliminación local ya se completó.',
-      );
-      return false;
+    } catch (cause) {
+      logError(message, cause instanceof Error ? cause.name : undefined);
+      throw new HttpError(500, message);
     }
   }
 }

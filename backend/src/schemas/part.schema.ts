@@ -32,7 +32,8 @@ export const createPartSchema = z
         invalid_type_error: 'El costo debe ser un número entero.',
       })
       .int('El costo debe ser un número entero.')
-      .min(0, 'El costo no puede ser negativo.'),
+      .min(0, 'El costo no puede ser negativo.')
+      .max(2_147_483_647, 'El costo no puede superar 2.147.483.647.'),
     purchaseDate: z
       .string({
         required_error: 'La fecha de compra es obligatoria.',

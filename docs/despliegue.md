@@ -10,7 +10,7 @@ drivers:
   `photoUrl` la URL pública completa. Es el modo recomendado en producción.
 
 El driver se elige con `STORAGE_DRIVER`. En ambos modos se valida la firma real
-del archivo (JPG, PNG o WEBP) y el límite de 5 MB.
+del archivo (JPG, PNG o WEBP) y el límite de 8 MB.
 
 ## 1. Crear el bucket
 

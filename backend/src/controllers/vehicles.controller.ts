@@ -26,11 +26,7 @@ import { PartsService } from '../services/parts.service';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 import { VehiclesService } from '../services/vehicles.service';
 import { VinDecoderService } from '../services/vin-decoder.service';
-import {
-  isLegacyPhotoUrl,
-  isVehiclePhotoKey,
-  StorageService,
-} from '../storage/storage.service';
+import { isVehiclePhotoKey, StorageService } from '../storage/storage.service';
 import { BRANDS } from '../utils/brands';
 import { vinParamSchema } from '../utils/vin';
 
@@ -51,7 +47,7 @@ async function removeOwnedPhoto(
     return;
   }
 
-  if (isLegacyPhotoUrl(photo) || !isVehiclePhotoKey(photo, userId, vehicleId)) {
+  if (!isVehiclePhotoKey(photo, userId, vehicleId)) {
     logWarn('No se borró la foto: la key no pertenece al vehículo.');
     return;
   }

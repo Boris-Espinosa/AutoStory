@@ -140,10 +140,10 @@ describe('createVehicleSchema', () => {
 
   it('ignora photoUrl: el cliente no puede elegir la foto', () => {
     const created = createVehicleSchema.parse(
-      validInput({ photoUrl: '/uploads/vehicles/ajena.png' }),
+      validInput({ photoUrl: 'foto-ajena' }),
     );
     const updated = updateVehicleSchema.parse(
-      validInput({ photoUrl: 'https://otro.example.com/foto.png' }),
+      validInput({ photoUrl: 'otra-foto' }),
     );
 
     expect(created).not.toHaveProperty('photoUrl');

@@ -951,26 +951,30 @@ describe('DELETE /vehicles/:vehicleId', () => {
     await expect(fs.access(photoPath)).rejects.toThrow();
   });
 
-  it('devuelve una photoUrl legacy tal cual y no la pasa a storage.remove', async () => {
+  it('omite un photoUrl antiguo en la respuesta y no lo borra del almacenamiento', async () => {
     const vehicle = await createVehicleAs('user-1');
-    const legacyUrl = '/uploads/vehicles/legacy-delete-test.png';
-    const legacyPath = uploadedFilePath(legacyUrl);
-    createdPhotos.push(legacyUrl);
+    const legacyPath = path.join(
+      VEHICLE_UPLOADS_DIR,
+      'legacy-delete-test.png',
+    );
+    createdPhotos.push(`vehicles/legacy-delete-test.png`);
 
     await fs.mkdir(VEHICLE_UPLOADS_DIR, { recursive: true });
     await fs.writeFile(legacyPath, PNG_BYTES);
     await dataSource.getRepository(Vehicle).update(
       { id: vehicle.id },
-      { photoUrl: legacyUrl },
+      { photoUrl: 'foto-antigua' },
     );
 
     const list = await api('GET', '/vehicles', { userId: 'user-1' });
     expect(list.body).toEqual([
-      expect.objectContaining({ photoUrl: legacyUrl }),
+      expect.objectContaining({ id: vehicle.id, photoUrl: null }),
     ]);
 
     const removeSpy = jest.spyOn(storage, 'remove');
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     const response = await api('DELETE', `/vehicles/${vehicle.id}`, {
       userId: 'user-1',
     });

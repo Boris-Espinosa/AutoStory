@@ -17,18 +17,14 @@ export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
 
 const VEHICLE_PHOTO_FILE = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
 
-/**
- * Legacy es cualquier valor que no sea una key nueva: URL pública antigua,
- * ruta /uploads o texto arbitrario que el cliente pudo guardar antes.
- */
-export function isLegacyPhotoUrl(photo: string | null): boolean {
+function isVehiclePhotoKeyFormat(photo: string | null): photo is string {
   if (photo === null) {
     return false;
   }
 
   const [root, owner, vehicle, file, ...rest] = photo.split('/');
 
-  return !(
+  return (
     rest.length === 0 &&
     root === 'vehicles' &&
     owner.length > 0 &&
@@ -46,8 +42,7 @@ export function isVehiclePhotoKey(
   vehicleId: string,
 ): photo is string {
   return (
-    photo !== null &&
-    !isLegacyPhotoUrl(photo) &&
+    isVehiclePhotoKeyFormat(photo) &&
     photo.startsWith(`${VEHICLE_PHOTO_KEY_PREFIX}${userId}/${vehicleId}/`)
   );
 }
@@ -137,7 +132,7 @@ export class StorageService {
   ): Promise<string> {
     const key = `${VEHICLE_PHOTO_KEY_PREFIX}${userId}/${vehicleId}/${randomUUID()}.${extension}`;
 
-    if (isLegacyPhotoUrl(key)) {
+    if (!isVehiclePhotoKeyFormat(key)) {
       throw new Error('Identificadores de foto inválidos.');
     }
 
@@ -174,19 +169,19 @@ export class StorageService {
     return key;
   }
 
-  /** Devuelve la URL pública de una key; los valores legacy pasan tal cual. */
+  /** Devuelve la URL pública de una key válida; cualquier otro valor se descarta. */
   publicUrl(photo: string | null): string | null {
-    if (photo === null || isLegacyPhotoUrl(photo)) {
-      return photo;
+    if (!isVehiclePhotoKeyFormat(photo)) {
+      return null;
     }
 
     return `${this.publicBase}${photo}`;
   }
 
-  /** Borra solo keys nuevas de este almacenamiento; ignora datos legacy. */
+  /** Borra solo keys válidas de este almacenamiento. */
   async remove(photoKey: string | null): Promise<void> {
-    if (photoKey === null || isLegacyPhotoUrl(photoKey)) {
-      return;
+    if (!isVehiclePhotoKeyFormat(photoKey)) {
+      throw new Error('Key de foto inválida.');
     }
 
     if (this.s3) {

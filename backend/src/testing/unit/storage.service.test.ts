@@ -3,7 +3,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
-  isLegacyPhotoUrl,
   StorageConfig,
   StorageService,
   VEHICLE_UPLOADS_DIR,
@@ -43,11 +42,7 @@ describe('StorageService con driver s3', () => {
     const key = await storage.save(PNG, 'png', USER_ID, VEHICLE_ID);
 
     expect(key).toMatch(keyPattern('png'));
-    expect(isLegacyPhotoUrl(key)).toBe(false);
     expect(storage.publicUrl(key)).toBe(`https://fotos.example.com/${key}`);
-    expect(storage.publicUrl('/uploads/vehicles/legacy.png')).toBe(
-      '/uploads/vehicles/legacy.png',
-    );
 
     const [command] = client.send.mock.calls[0] as [PutObjectCommand];
     expect(command).toBeInstanceOf(PutObjectCommand);
@@ -77,19 +72,23 @@ describe('StorageService con driver s3', () => {
     });
   });
 
-  it('nunca envía valores legacy al bucket', async () => {
+  it('devuelve null para un valor antiguo y rechaza remove sin tocar el bucket', async () => {
     const client = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
 
-    expect(isLegacyPhotoUrl('/uploads/vehicles/legacy.png')).toBe(true);
-    expect(
-      isLegacyPhotoUrl('https://fotos.example.com/vehicles/ajena.png'),
-    ).toBe(true);
-    expect(isLegacyPhotoUrl(null)).toBe(false);
+    expect(storage.publicUrl('foto-antigua')).toBeNull();
+    expect(storage.publicUrl('otra-foto-invalida')).toBeNull();
+    expect(storage.publicUrl(null)).toBeNull();
 
-    await storage.remove('/uploads/vehicles/legacy.png');
-    await storage.remove('https://fotos.example.com/vehicles/ajena.png');
-    await storage.remove(null);
+    await expect(storage.remove('foto-antigua')).rejects.toThrow(
+      'Key de foto inválida.',
+    );
+    await expect(storage.remove('otra-foto-invalida')).rejects.toThrow(
+      'Key de foto inválida.',
+    );
+    await expect(storage.remove(null)).rejects.toThrow(
+      'Key de foto inválida.',
+    );
 
     expect(client.send).not.toHaveBeenCalled();
   });
@@ -127,6 +126,26 @@ describe('StorageService con driver disk', () => {
     await fs.rm(ownerDir, { recursive: true, force: true });
   });
 
+  it('devuelve null para un valor antiguo y rechaza remove sin tocar disco', async () => {
+    const storage = new StorageService({ driver: 'disk', s3: {} });
+    const rmSpy = jest.spyOn(fs, 'rm');
+
+    try {
+      expect(storage.publicUrl('foto-antigua')).toBeNull();
+
+      await expect(storage.remove('foto-antigua')).rejects.toThrow(
+        'Key de foto inválida.',
+      );
+      await expect(storage.remove(null)).rejects.toThrow(
+        'Key de foto inválida.',
+      );
+
+      expect(rmSpy).not.toHaveBeenCalled();
+    } finally {
+      rmSpy.mockRestore();
+    }
+  });
+
   it('rechaza keys que salen de uploads sin tocar el disco', async () => {
     const storage = new StorageService({ driver: 'disk', s3: {} });
     const sentinel = path.join(
@@ -158,13 +177,7 @@ describe('StorageService con driver disk', () => {
           `vehicles/${segment}/vehiculo/${outsideFile}`,
           `vehicles/usuario/${segment}/${outsideFile}`,
         ]) {
-          if (isLegacyPhotoUrl(key)) {
-            await expect(storage.remove(key)).resolves.toBeUndefined();
-          } else {
-            await expect(storage.remove(key)).rejects.toThrow(
-              'Ruta de foto inválida.',
-            );
-          }
+          await expect(storage.remove(key)).rejects.toThrow();
         }
       }
 
@@ -173,7 +186,7 @@ describe('StorageService con driver disk', () => {
       ).rejects.toThrow();
       await expect(
         storage.remove(`vehicles/usuario/vehiculo/${outsideFile}\0.png`),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('Key de foto inválida.');
 
       expect(renameSpy).not.toHaveBeenCalled();
       expect(rmSpy).not.toHaveBeenCalled();

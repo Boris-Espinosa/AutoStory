@@ -20,6 +20,10 @@ export function buildDatabaseSslOptions(input: DatabaseSslInput): DatabaseSslOpt
     );
   }
 
+  if (!input.ssl && input.nodeEnv === 'production') {
+    warn('DATABASE_SSL no está activo en producción; Neon exige TLS.');
+  }
+
   const insecure =
     input.ssl && input.insecure && input.nodeEnv !== 'production';
   const ssl: DatabaseSslOptions['ssl'] = input.ssl
@@ -30,13 +34,15 @@ export function buildDatabaseSslOptions(input: DatabaseSslInput): DatabaseSslOpt
     return { url: input.url, ssl };
   }
 
-  const sslmode = !input.ssl
-    ? 'disable'
-    : insecure
-      ? 'no-verify'
-      : 'verify-full';
   const url = new URL(input.url);
-  url.searchParams.set('sslmode', sslmode);
+  if (!input.ssl) {
+    url.searchParams.set('sslmode', 'disable');
+  } else if (insecure) {
+    // Sin sslmode, pg respeta la opción ssl del código; no-verify falla con uselibpqcompat.
+    url.searchParams.delete('sslmode');
+  } else {
+    url.searchParams.set('sslmode', 'verify-full');
+  }
 
   return { url: url.toString(), ssl };
 }

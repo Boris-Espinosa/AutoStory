@@ -2,11 +2,7 @@ import { createClerkClient } from '@clerk/backend';
 import { DataSource } from 'typeorm';
 import { error as logError, warn } from '../common/logger';
 import { env } from '../config/env';
-import {
-  isLegacyPhotoUrl,
-  isVehiclePhotoKey,
-  StorageService,
-} from '../storage/storage.service';
+import { isVehiclePhotoKey, StorageService } from '../storage/storage.service';
 
 const CLERK_TIMEOUT_MS = 5_000;
 
@@ -127,7 +123,7 @@ export class AccountDeletionService {
           return [];
         }
 
-        if (isLegacyPhotoUrl(photoUrl) || !isVehiclePhotoKey(photoUrl, userId, id)) {
+        if (!isVehiclePhotoKey(photoUrl, userId, id)) {
           warn('No se borró una foto que no pertenece al vehículo eliminado.');
           return [];
         }

@@ -1,3 +1,4 @@
+import { ClerkAPIResponseError } from '@clerk/backend/errors';
 import { promises as fs } from 'fs';
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
@@ -21,19 +22,31 @@ import { User } from '../../entities/User';
 import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
 import { Vehicle } from '../../entities/Vehicle';
 import { Workshop } from '../../entities/Workshop';
-import { ClerkUserDeleter } from '../../services/account-deletion.service';
+import {
+  AccountDeletionService,
+  ClerkUserDeleter,
+} from '../../services/account-deletion.service';
 import { VEHICLE_UPLOADS_DIR } from '../../middlewares/photo-upload';
+import { StorageService } from '../../storage/storage.service';
 import { createTestDataSource } from '../test-data-source';
 
 class FakeClerkUserDeleter implements ClerkUserDeleter {
   readonly calls: string[] = [];
   shouldFail = false;
+  shouldThrowNotFound = false;
 
   async deleteUser(userId: string): Promise<void> {
     this.calls.push(userId);
 
     if (this.shouldFail) {
       throw new Error('Clerk no disponible');
+    }
+
+    if (this.shouldThrowNotFound) {
+      throw new ClerkAPIResponseError('Usuario no encontrado', {
+        data: [{ code: 'resource_not_found', message: 'User not found' }],
+        status: 404,
+      });
     }
   }
 }
@@ -55,6 +68,8 @@ let sharingRequests: Repository<SharingRequest>;
 
 const clock: Clock = { now: () => new Date('2026-11-09T12:00:00.000Z') };
 const PHOTO_NAME = '00000000-0000-4000-8000-000000000000.jpg';
+const CLERK_FAILURE_MESSAGE =
+  'No se pudo completar la eliminación en Clerk. Vuelve a intentarlo.';
 let photoPath: string;
 
 interface ApiResponse {
@@ -272,6 +287,7 @@ afterAll(async () => {
 beforeEach(async () => {
   deleter.calls.length = 0;
   deleter.shouldFail = false;
+  deleter.shouldThrowNotFound = false;
   await dataSource.query(
     `TRUNCATE TABLE "notifications", "appointment_reminders", "appointments", "user_vehicles", "sharing_requests", "parts", "maintenances", "workshops", "vehicles", "users" CASCADE`,
   );
@@ -411,7 +427,7 @@ describe('eliminación de cuenta', () => {
     expect(deleter.calls).toEqual([]);
   });
 
-  it('responde 200 con clerkDeleted false si Clerk falla', async () => {
+  it('no responde éxito si Clerk falla, aunque ya borró los datos locales', async () => {
     deleter.shouldFail = true;
     const consoleError = jest
       .spyOn(console, 'error')
@@ -423,14 +439,89 @@ describe('eliminación de cuenta', () => {
         body: { confirm: 'ELIMINAR' },
       });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ clerkDeleted: false });
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ message: CLERK_FAILURE_MESSAGE });
+      expect(deleter.calls).toEqual(['user-1']);
       expect(await users.findOneBy({ id: 'user-1' })).toBeNull();
+      expect(await vehicles.countBy({ licensePlate: 'BCDF11' })).toBe(0);
+      expect(await userVehicles.countBy({ userId: 'user-1' })).toBe(0);
+      await expect(fs.access(photoPath)).rejects.toBeDefined();
       expect(consoleError).toHaveBeenCalledWith(
-        'No se pudo eliminar la cuenta en Clerk; la eliminación local ya se completó.',
+        `${CLERK_FAILURE_MESSAGE} Error`,
       );
     } finally {
       consoleError.mockRestore();
+    }
+  });
+
+  it('reintenta con éxito tras un fallo de Clerk', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      deleter.shouldFail = true;
+      const failed = await api('DELETE', '/me', {
+        userId: 'user-1',
+        body: { confirm: 'ELIMINAR' },
+      });
+      expect(failed.status).toBe(500);
+
+      deleter.shouldFail = false;
+      // dev-header exige fila local; simula el user sync tras el fallo.
+      await seedUser('user-1');
+      const retried = await api('DELETE', '/me', {
+        userId: 'user-1',
+        body: { confirm: 'ELIMINAR' },
+      });
+
+      expect(retried.status).toBe(200);
+      expect(retried.body).toEqual({ clerkDeleted: true });
+      expect(deleter.calls).toEqual(['user-1', 'user-1']);
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(await users.findOneBy({ id: 'user-1' })).toBeNull();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('borra en Clerk aunque el usuario local no exista', async () => {
+    const localDeleter = new FakeClerkUserDeleter();
+    const service = new AccountDeletionService(
+      dataSource,
+      localDeleter,
+      new StorageService({ driver: 'disk', s3: {} }),
+    );
+
+    await expect(service.deleteAccount('user-9')).resolves.toEqual({
+      clerkDeleted: true,
+    });
+
+    expect(localDeleter.calls).toEqual(['user-9']);
+    expect(await users.findOneBy({ id: 'user-9' })).toBeNull();
+  });
+
+  it('responde éxito si Clerk dice que el usuario ya no existe', async () => {
+    deleter.shouldThrowNotFound = true;
+    const consoleWarn = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await api('DELETE', '/me', {
+        userId: 'user-1',
+        body: { confirm: 'ELIMINAR' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ clerkDeleted: true });
+      expect(deleter.calls).toEqual(['user-1']);
+      expect(await users.findOneBy({ id: 'user-1' })).toBeNull();
+      expect(consoleWarn).toHaveBeenCalledWith(
+        'El usuario ya no existe en Clerk; se trata como éxito.',
+      );
+    } finally {
+      consoleWarn.mockRestore();
     }
   });
 

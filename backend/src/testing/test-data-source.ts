@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
+import { buildDatabaseSslOptions } from '../config/database-ssl';
+import { env } from '../config/env';
 import { ENTITIES, MIGRATIONS } from '../db/data-source';
 
 export function requireTestDatabaseUrl(): string {
@@ -29,14 +31,22 @@ export function requireTestDatabaseUrl(): string {
 }
 
 export function createTestDataSource(): DataSource {
+  const sslOptions = buildDatabaseSslOptions({
+    url: requireTestDatabaseUrl(),
+    ssl: env.database.ssl,
+    insecure: env.database.sslInsecure,
+    nodeEnv: env.nodeEnv,
+  });
+
   return new DataSource({
     type: 'postgres',
-    url: requireTestDatabaseUrl(),
+    url: sslOptions.url,
     entities: ENTITIES,
     migrations: MIGRATIONS,
     dropSchema: true,
     migrationsRun: true,
     synchronize: false,
     logging: false,
+    ssl: sslOptions.ssl,
   });
 }

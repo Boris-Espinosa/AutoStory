@@ -144,6 +144,28 @@ export async function processDueReminders(
   now: Date = clock.now(),
   hooks: ReminderWorkerHooks = {},
 ): Promise<number> {
+  const knownIds = [...consecutiveFailures.keys()];
+  if (knownIds.length > 0) {
+    try {
+      const existing = await dataSource.getRepository(AppointmentReminder).find({
+        select: { id: true },
+        where: { id: In(knownIds), processedAt: IsNull() },
+      });
+      const existingIds = new Set(existing.map((reminder) => reminder.id));
+
+      for (const id of knownIds) {
+        if (!existingIds.has(id)) {
+          consecutiveFailures.delete(id);
+        }
+      }
+    } catch (error) {
+      warn(
+        'No se pudo depurar los fallos de recordatorios inexistentes.',
+        error instanceof Error ? error.name : 'Error',
+      );
+    }
+  }
+
   const failedThisRun = new Set<string>();
   let processed = 0;
 

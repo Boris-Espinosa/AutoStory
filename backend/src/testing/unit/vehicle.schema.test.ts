@@ -4,7 +4,7 @@ import {
 } from '../../schemas/vehicle.schema';
 
 const VIN = 'WVWZZZ6RZMY000001';
-const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_YEAR = 2026;
 
 function validInput(overrides: Record<string, unknown> = {}): unknown {
   return {
@@ -36,6 +36,14 @@ function firstIssue(overrides: Record<string, unknown>): {
 }
 
 describe('createVehicleSchema', () => {
+  beforeEach(() => {
+    jest
+      .useFakeTimers()
+      .setSystemTime(new Date(`${CURRENT_YEAR}-12-31T12:00:00Z`));
+  });
+
+  afterEach(() => jest.useRealTimers());
+
   it('normaliza la patente: mayúsculas, sin espacios, puntos ni guiones', () => {
     const result = createVehicleSchema.parse(
       validInput({ licensePlate: ' bc-df 12 ' }),
@@ -95,6 +103,23 @@ describe('createVehicleSchema', () => {
     expect(firstIssue({ year: CURRENT_YEAR + 2 })).toEqual({
       field: 'year',
       message,
+    });
+  });
+
+  it('usa el año actual al validar aunque el esquema ya estuviera creado', () => {
+    expect(firstIssue({ year: CURRENT_YEAR + 2 })).toEqual({
+      field: 'year',
+      message: `El año debe estar entre 1950 y ${CURRENT_YEAR + 1}.`,
+    });
+
+    jest.setSystemTime(new Date(`${CURRENT_YEAR + 1}-01-01T12:00:00Z`));
+
+    expect(
+      createVehicleSchema.parse(validInput({ year: CURRENT_YEAR + 2 })).year,
+    ).toBe(CURRENT_YEAR + 2);
+    expect(firstIssue({ year: CURRENT_YEAR + 3 })).toEqual({
+      field: 'year',
+      message: `El año debe estar entre 1950 y ${CURRENT_YEAR + 2}.`,
     });
   });
 

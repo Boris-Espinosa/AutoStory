@@ -4,8 +4,8 @@ import { plateSchema } from '../utils/license-plate';
 import { vinSchema } from '../utils/vin';
 
 const MIN_YEAR = 1950;
-const MAX_YEAR = new Date().getFullYear() + 1;
 const MAX_MILEAGE = 2_000_000;
+const maxYear = () => new Date().getFullYear() + 1;
 
 export const createVehicleSchema = z
   .object({
@@ -36,8 +36,12 @@ export const createVehicleSchema = z
         invalid_type_error: 'El año debe ser un número entero.',
       })
       .int('El año debe ser un número entero.')
-      .min(MIN_YEAR, `El año debe estar entre ${MIN_YEAR} y ${MAX_YEAR}.`)
-      .max(MAX_YEAR, `El año debe estar entre ${MIN_YEAR} y ${MAX_YEAR}.`),
+      .refine(
+        (year) => year >= MIN_YEAR && year <= maxYear(),
+        () => ({
+          message: `El año debe estar entre ${MIN_YEAR} y ${maxYear()}.`,
+        }),
+      ),
     currentMileage: z
       .number({
         required_error: 'El kilometraje es obligatorio.',

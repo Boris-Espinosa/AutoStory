@@ -38,7 +38,7 @@ import { OverflowMenu } from '../../../src/components/ui/OverflowMenu';
 import { Screen } from '../../../src/components/ui/Screen';
 import { SectionHeader } from '../../../src/components/ui/SectionHeader';
 import { SegmentedTabs } from '../../../src/components/ui/SegmentedTabs';
-import { AppointmentsList } from '../../../src/features/appointments/AppointmentsList';
+import { AppointmentsList } from '../../../src/features/appointments/components/AppointmentsList';
 import { MaintenancesTab } from '../../../src/features/vehicle/MaintenancesTab';
 import { PartsTab } from '../../../src/features/vehicle/PartsTab';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';

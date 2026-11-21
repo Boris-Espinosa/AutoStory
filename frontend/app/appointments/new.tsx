@@ -1,1 +1,1 @@
-export { default } from '../../src/features/appointments/AppointmentFormScreen';
+export { default } from '../../src/features/appointments/screens/AppointmentFormScreen';

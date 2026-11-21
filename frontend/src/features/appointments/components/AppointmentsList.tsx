@@ -2,14 +2,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { Appointment, useAppointments } from '../../api/appointments';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { ListRow } from '../../components/ui/ListRow';
-import { SectionHeader } from '../../components/ui/SectionHeader';
-import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { Appointment, useAppointments } from '../../../api/appointments';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { ListRow } from '../../../components/ui/ListRow';
+import { SectionHeader } from '../../../components/ui/SectionHeader';
+import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import {
   colors,
   fontSizes,
@@ -17,12 +17,12 @@ import {
   spacing,
   tracking,
   typography,
-} from '../../theme';
+} from '../../../theme';
 import {
   formatDayMonth,
   formatRelativeDay,
   formatTime24,
-} from '../../utils/datetime';
+} from '../../../utils/datetime';
 
 export interface AppointmentsListProps {
   vehicleId?: string;

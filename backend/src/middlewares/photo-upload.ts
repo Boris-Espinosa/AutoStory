@@ -10,12 +10,6 @@ import {
   VEHICLE_UPLOADS_DIR,
 } from '../storage/storage.service';
 
-export {
-  UPLOADS_DIR,
-  VEHICLE_UPLOADS_DIR,
-  VEHICLE_PHOTO_URL_PREFIX,
-} from '../storage/storage.service';
-
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 // 12 bytes bastan para las tres firmas (WebP necesita RIFF....WEBP).

@@ -7,11 +7,11 @@ import { createApp } from '../../app';
 import { User } from '../../entities/User';
 import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
 import { Vehicle } from '../../entities/Vehicle';
-import { createStorageService } from '../../storage/storage.service';
 import {
+  createStorageService,
   UPLOADS_DIR,
   VEHICLE_UPLOADS_DIR,
-} from '../../middlewares/photo-upload';
+} from '../../storage/storage.service';
 import { createTestDataSource } from '../test-data-source';
 
 const VIN = 'WVWZZZ6RZMY000001';

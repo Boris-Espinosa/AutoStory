@@ -34,7 +34,7 @@ import { PartsService } from './services/parts.service';
 import { createVehiclesRouter } from './routes/vehicles.routes';
 import { VehicleAccessService } from './services/vehicle-access.service';
 import { VehiclesService } from './services/vehicles.service';
-import { UPLOADS_DIR } from './middlewares/photo-upload';
+import { UPLOADS_DIR, VEHICLE_UPLOADS_DIR } from './storage/storage.service';
 import { VinDecoderService } from './services/vin-decoder.service';
 import { WorkshopService } from './services/workshop.service';
 import { createWorkshopsRouter } from './routes/workshops.routes';

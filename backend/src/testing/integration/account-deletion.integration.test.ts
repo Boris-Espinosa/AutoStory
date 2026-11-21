@@ -26,7 +26,7 @@ import {
   AccountDeletionService,
   ClerkUserDeleter,
 } from '../../services/account-deletion.service';
-import { VEHICLE_UPLOADS_DIR } from '../../middlewares/photo-upload';
+import { VEHICLE_UPLOADS_DIR } from '../../storage/storage.service';
 import { StorageService } from '../../storage/storage.service';
 import { createTestDataSource } from '../test-data-source';
 

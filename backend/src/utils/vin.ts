@@ -45,7 +45,6 @@ export type VinValidation =
       message: string;
     };
 
-/** Quita espacios y normaliza a mayúsculas. El resto se valida, no se borra. */
 export function normalizeVin(value: string | null | undefined): string | null {
   if (value == null) {
     return null;
@@ -56,7 +55,6 @@ export function normalizeVin(value: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-/** Dígito verificador ISO 3779 de la posición 9, o null si el VIN no es de 17. */
 export function calculateVinCheckDigit(vin: string): string | null {
   if (vin.length !== 17) {
     return null;
@@ -87,7 +85,6 @@ export function validateVin(vin: string): VinValidation {
     return { ok: false, code: 'VIN_FORMAT', message: VIN_FORMAT_MESSAGE };
   }
 
-  // Solo los VIN norteamericanos (primer carácter 1 a 5) exigen dígito verificador.
   if (/^[1-5]/.test(vin) && calculateVinCheckDigit(vin) !== vin[8]) {
     return {
       ok: false,
@@ -114,20 +111,17 @@ function addValidationIssue(
   }
 }
 
-/** VIN de un formulario: opcional y una cadena vacía equivale a ausente. */
 export const vinSchema = z
   .union([z.string(), z.null()], {
-    invalid_type_error: 'El VIN no es válido.',
+    error: 'El VIN no es válido.',
   })
   .optional()
   .transform((value) => normalizeVin(value ?? null))
   .superRefine(addValidationIssue);
 
-/** VIN de una ruta: obligatorio. */
 export const vinParamSchema = z
   .string({
-    required_error: VIN_FORMAT_MESSAGE,
-    invalid_type_error: VIN_FORMAT_MESSAGE,
+    error: VIN_FORMAT_MESSAGE,
   })
   .transform((value) => normalizeVin(value) ?? '')
   .superRefine((value, context) => {

@@ -13,39 +13,42 @@ export const createVehicleSchema = z
     licensePlate: plateSchema,
     brand: z
       .string({
-        required_error: 'La marca es obligatoria.',
-        invalid_type_error: 'La marca es obligatoria.',
+        error: (issue) =>
+          issue.input === undefined
+            ? 'La marca es obligatoria.'
+            : 'La marca es obligatoria.',
       })
       .trim()
       .pipe(
         z.enum(BRANDS, {
-          errorMap: () => ({ message: 'Selecciona una marca válida.' }),
+          error: 'Selecciona una marca válida.',
         }),
       ),
     model: z
       .string({
-        required_error: 'El modelo es obligatorio.',
-        invalid_type_error: 'El modelo es obligatorio.',
+        error: 'El modelo es obligatorio.',
       })
       .trim()
       .min(1, 'El modelo es obligatorio.')
       .max(60, 'El modelo no puede tener más de 60 caracteres.'),
     year: z
       .number({
-        required_error: 'El año es obligatorio.',
-        invalid_type_error: 'El año debe ser un número entero.',
+        error: (issue) =>
+          issue.input === undefined
+            ? 'El año es obligatorio.'
+            : 'El año debe ser un número entero.',
       })
       .int('El año debe ser un número entero.')
       .refine(
         (year) => year >= MIN_YEAR && year <= maxYear(),
-        () => ({
-          message: `El año debe estar entre ${MIN_YEAR} y ${maxYear()}.`,
-        }),
+        { error: () => `El año debe estar entre ${MIN_YEAR} y ${maxYear()}.` },
       ),
     currentMileage: z
       .number({
-        required_error: 'El kilometraje es obligatorio.',
-        invalid_type_error: 'El kilometraje debe ser un número entero.',
+        error: (issue) =>
+          issue.input === undefined
+            ? 'El kilometraje es obligatorio.'
+            : 'El kilometraje debe ser un número entero.',
       })
       .int('El kilometraje debe ser un número entero.')
       .min(0, 'El kilometraje no puede ser negativo.')

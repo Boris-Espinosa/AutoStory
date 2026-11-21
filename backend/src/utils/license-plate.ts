@@ -37,8 +37,7 @@ export function isValidLicensePlate(value: string): boolean {
 
 export const plateSchema = z
   .string({
-    required_error: 'La patente es obligatoria.',
-    invalid_type_error: 'La patente es obligatoria.',
+    error: 'La patente es obligatoria.',
   })
   .transform(normalizeLicensePlate)
-  .refine(isValidLicensePlate, { message: LICENSE_PLATE_MESSAGE });
+  .refine(isValidLicensePlate, { error: LICENSE_PLATE_MESSAGE });

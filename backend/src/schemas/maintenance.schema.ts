@@ -5,8 +5,7 @@ export const createMaintenanceSchema = z
   .object({
     serviceDate: z
       .string({
-        required_error: 'La fecha es obligatoria.',
-        invalid_type_error: 'La fecha es obligatoria.',
+        error: 'La fecha es obligatoria.',
       })
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato YYYY-MM-DD.')
       .refine(isValidIsoDate, 'La fecha no es válida.')
@@ -16,8 +15,10 @@ export const createMaintenanceSchema = z
       ),
     serviceMileage: z
       .number({
-        required_error: 'El kilometraje del servicio es obligatorio.',
-        invalid_type_error: 'El kilometraje del servicio debe ser un número entero.',
+        error: (issue) =>
+          issue.input === undefined
+            ? 'El kilometraje del servicio es obligatorio.'
+            : 'El kilometraje del servicio debe ser un número entero.',
       })
       .int('El kilometraje del servicio debe ser un número entero.')
       .min(0, 'El kilometraje del servicio no puede ser negativo.')
@@ -27,21 +28,20 @@ export const createMaintenanceSchema = z
       ),
     description: z
       .string({
-        required_error: 'La descripción es obligatoria.',
-        invalid_type_error: 'La descripción es obligatoria.',
+        error: 'La descripción es obligatoria.',
       })
       .trim()
       .min(3, 'La descripción debe tener al menos 3 caracteres.')
       .max(500, 'La descripción no puede tener más de 500 caracteres.'),
     diagnosis: z
-      .string({ invalid_type_error: 'El diagnóstico debe ser texto.' })
+      .string({ error: 'El diagnóstico debe ser texto.' })
       .trim()
       .max(1000, 'El diagnóstico no puede tener más de 1000 caracteres.')
       .nullable()
       .optional()
       .transform((value) => (value ? value : null)),
     laborCost: z
-      .number({ invalid_type_error: 'El costo de mano de obra debe ser un número entero.' })
+      .number({ error: 'El costo de mano de obra debe ser un número entero.' })
       .int('El costo de mano de obra debe ser un número entero.')
       .min(0, 'El costo de mano de obra no puede ser negativo.')
       .max(
@@ -50,13 +50,13 @@ export const createMaintenanceSchema = z
       )
       .default(0),
     workshopId: z
-      .string({ invalid_type_error: 'El taller seleccionado no es válido.' })
+      .string({ error: 'El taller seleccionado no es válido.' })
       .uuid('El taller seleccionado no es válido.')
       .nullable()
       .optional()
       .transform((value) => value ?? null),
     appointmentId: z
-      .string({ invalid_type_error: 'La cita seleccionada no es válida.' })
+      .string({ error: 'La cita seleccionada no es válida.' })
       .uuid('La cita seleccionada no es válida.')
       .nullable()
       .optional()
@@ -64,9 +64,9 @@ export const createMaintenanceSchema = z
     partIds: z
       .array(
         z
-          .string({ invalid_type_error: 'El repuesto seleccionado no es válido.' })
+          .string({ error: 'El repuesto seleccionado no es válido.' })
           .uuid('El repuesto seleccionado no es válido.'),
-        { invalid_type_error: 'Los repuestos deben venir en una lista.' },
+        { error: 'Los repuestos deben venir en una lista.' },
       )
       .max(50, 'No se pueden asignar más de 50 repuestos.')
       .refine(
@@ -80,7 +80,6 @@ export const createMaintenanceSchema = z
 
 export type CreateMaintenanceInput = z.infer<typeof createMaintenanceSchema>;
 
-/** Mismas validaciones que al crear; cada campo es opcional. */
 export const updateMaintenanceSchema = createMaintenanceSchema
   .partial()
   .omit({ appointmentId: true });
@@ -90,13 +89,13 @@ export type UpdateMaintenanceInput = z.infer<typeof updateMaintenanceSchema>;
 export const listMaintenancesQuerySchema = z
   .object({
     limit: z.coerce
-      .number({ invalid_type_error: 'El límite debe ser un número entero.' })
+      .number({ error: 'El límite debe ser un número entero.' })
       .int('El límite debe ser un número entero.')
       .min(1, 'El límite debe ser al menos 1.')
       .max(100, 'El límite no puede ser mayor que 100.')
       .default(50),
     offset: z.coerce
-      .number({ invalid_type_error: 'El desplazamiento debe ser un número entero.' })
+      .number({ error: 'El desplazamiento debe ser un número entero.' })
       .int('El desplazamiento debe ser un número entero.')
       .min(0, 'El desplazamiento no puede ser negativo.')
       .default(0),

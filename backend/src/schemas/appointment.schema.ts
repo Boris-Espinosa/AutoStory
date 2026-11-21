@@ -22,12 +22,14 @@ function scheduledAtSchema(now: Date) {
 
   return z
     .string({
-      required_error: 'La fecha y hora son obligatorias.',
-      invalid_type_error: 'La fecha y hora no son válidas.',
+      error: (issue) =>
+        issue.input === undefined
+          ? 'La fecha y hora son obligatorias.'
+          : 'La fecha y hora no son válidas.',
     })
     .datetime({
       offset: true,
-      message: 'La fecha y hora no son válidas.',
+      error: 'La fecha y hora no son válidas.',
     })
     .transform((value) => new Date(value))
     .refine(
@@ -41,14 +43,13 @@ function scheduledAtSchema(now: Date) {
 }
 
 const timezoneSchema = z
-  .string({ invalid_type_error: 'La zona horaria no es válida.' })
+  .string({ error: 'La zona horaria no es válida.' })
   .default('America/Santiago')
   .refine(isValidTimezone, 'La zona horaria no es válida.');
 
 const reasonSchema = z
   .string({
-    required_error: 'El motivo es obligatorio.',
-    invalid_type_error: 'El motivo es obligatorio.',
+    error: 'El motivo es obligatorio.',
   })
   .transform(normalizeText)
   .refine(
@@ -61,7 +62,7 @@ const reasonSchema = z
   );
 
 const notesSchema = z
-  .string({ invalid_type_error: 'Las observaciones deben ser texto.' })
+  .string({ error: 'Las observaciones deben ser texto.' })
   .transform(normalizeText)
   .refine(
     (value) => value.length <= 1000,
@@ -72,7 +73,7 @@ const notesSchema = z
   .transform((value) => (value ? value : null));
 
 const workshopIdSchema = z
-  .string({ invalid_type_error: 'El taller seleccionado no es válido.' })
+  .string({ error: 'El taller seleccionado no es válido.' })
   .uuid('El taller seleccionado no es válido.')
   .nullable()
   .optional()
@@ -81,9 +82,9 @@ const workshopIdSchema = z
 const remindersSchema = z
   .array(
     z
-      .number({ invalid_type_error: 'El recordatorio no es válido.' })
+      .number({ error: 'El recordatorio no es válido.' })
       .int('El recordatorio no es válido.'),
-    { invalid_type_error: 'Los recordatorios deben venir en una lista.' },
+    { error: 'Los recordatorios deben venir en una lista.' },
   )
   .refine(
     (values) =>
@@ -124,19 +125,19 @@ export type UpdateAppointmentInput = z.infer<
 >;
 
 const scopeSchema = z.enum(['upcoming', 'overdue', 'history'], {
-  errorMap: () => ({ message: 'El alcance no es válido.' }),
+  error: 'El alcance no es válido.',
 });
 
 const paginationShape = {
   scope: scopeSchema.default('upcoming'),
   limit: z.coerce
-    .number({ invalid_type_error: 'El límite debe ser un número entero.' })
+    .number({ error: 'El límite debe ser un número entero.' })
     .int('El límite debe ser un número entero.')
     .min(1, 'El límite debe ser al menos 1.')
     .max(100, 'El límite no puede ser mayor que 100.')
     .default(30),
   offset: z.coerce
-    .number({ invalid_type_error: 'El desplazamiento debe ser un número entero.' })
+    .number({ error: 'El desplazamiento debe ser un número entero.' })
     .int('El desplazamiento debe ser un número entero.')
     .min(0, 'El desplazamiento no puede ser negativo.')
     .default(0),
@@ -154,7 +155,7 @@ export const listUserAppointmentsQuerySchema = z
   .object({
     ...paginationShape,
     vehicleId: z
-      .string({ invalid_type_error: 'El vehículo no es válido.' })
+      .string({ error: 'El vehículo no es válido.' })
       .uuid('El vehículo no es válido.')
       .optional(),
   })

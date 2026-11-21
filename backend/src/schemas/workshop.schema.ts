@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const optionalText = (max: number, message: string) =>
   z
-    .string({ invalid_type_error: message })
+    .string({ error: message })
     .trim()
     .max(max, message)
     .nullable()
@@ -13,8 +13,7 @@ export const createWorkshopSchema = z
   .object({
     name: z
       .string({
-        required_error: 'El nombre del taller es obligatorio.',
-        invalid_type_error: 'El nombre del taller es obligatorio.',
+        error: 'El nombre del taller es obligatorio.',
       })
       .trim()
       .min(1, 'El nombre del taller es obligatorio.')
@@ -25,7 +24,7 @@ export const createWorkshopSchema = z
     ),
     phone: optionalText(30, 'El teléfono no puede tener más de 30 caracteres.'),
     rating: z
-      .number({ invalid_type_error: 'El rating debe ser un número entero.' })
+      .number({ error: 'El rating debe ser un número entero.' })
       .int('El rating debe ser un número entero.')
       .min(1, 'El rating debe estar entre 1 y 5.')
       .max(5, 'El rating debe estar entre 1 y 5.')

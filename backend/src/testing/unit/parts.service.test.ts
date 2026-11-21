@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Maintenance } from '../../entities/Maintenance';
 import { Part } from '../../entities/Part';
 import { CreatePartInput } from '../../schemas/part.schema';
@@ -22,7 +22,13 @@ function buildInput(overrides: Partial<CreatePartInput> = {}): CreatePartInput {
 
 function buildService() {
   const maintenances = { findOne: jest.fn() };
-  const parts = { create: jest.fn(), save: jest.fn(), find: jest.fn() };
+  const parts = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findAndCount: jest.fn(),
+    createQueryBuilder: jest.fn(),
+    metadata: { columns: [{ propertyName: 'cost', databaseName: 'cost' }] },
+  };
 
   const service = new PartsService({
     maintenances: maintenances as unknown as Repository<Maintenance>,
@@ -96,17 +102,31 @@ describe('PartsService', () => {
     expect(parts.save).not.toHaveBeenCalled();
   });
 
-  it('lista los repuestos del vehículo y suma el costo total', async () => {
+  it('lista con límite/desplazamiento y convierte el total de SQL a número', async () => {
     const { service, parts } = buildService();
     const items = [{ cost: 10000 }, { cost: 2500 }];
-    parts.find.mockResolvedValue(items);
-
-    const result = await service.listByVehicle(VEHICLE_ID);
-
-    expect(result).toEqual({ items, totalCost: 12500 });
-    expect(parts.find).toHaveBeenCalledWith({
-      where: { vehicleId: VEHICLE_ID },
-      order: { purchaseDate: 'DESC', createdAt: 'DESC' },
+    const getRawOne = jest.fn().mockResolvedValue({ totalCost: '12500' });
+    parts.findAndCount.mockResolvedValue([items, 7]);
+    parts.createQueryBuilder.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne,
     });
+
+    const result = await service.listByVehicle(VEHICLE_ID, {
+      unassigned: true,
+      limit: 1,
+      offset: 2,
+    });
+
+    expect(result).toEqual({ items, totalCost: 12500, total: 7 });
+    expect(parts.findAndCount).toHaveBeenCalledWith({
+      where: { vehicleId: VEHICLE_ID, maintenanceId: IsNull() },
+      order: { purchaseDate: 'DESC', createdAt: 'DESC', id: 'ASC' },
+      take: 1,
+      skip: 2,
+    });
+    expect(getRawOne).toHaveBeenCalled();
   });
 });

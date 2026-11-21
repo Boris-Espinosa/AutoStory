@@ -838,4 +838,119 @@ describe('GET /vehicles/:vehicleId/parts?unassigned=true', () => {
       expect.arrayContaining([expect.objectContaining({ field: 'unassigned' })]),
     );
   });
+
+  it('rechaza límites y desplazamientos inválidos', async () => {
+    const vehicle = await createVehicle('user-1');
+
+    for (const query of [
+      'limit=0',
+      'limit=101',
+      'limit=abc',
+      'offset=-1',
+      'offset=1.5',
+    ]) {
+      const response = await api(
+        'GET',
+        `/vehicles/${vehicle.id}/parts?${query}`,
+        { userId: 'user-1' },
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: query.split('=')[0] }),
+        ]),
+      );
+    }
+  });
+
+  it('acota items pero no totalCost cuando hay más repuestos que el límite', async () => {
+    const vehicle = await createVehicle('user-1');
+    await parts.save(
+      Array.from({ length: 101 }, (_, index) => ({
+        vehicleId: vehicle.id,
+        name: `Repuesto ${index}`,
+        category: 'Otro' as const,
+        cost: 1000,
+        purchaseDate: '2026-01-01',
+      })),
+    );
+
+    const page = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/parts?limit=1&offset=1`,
+      { userId: 'user-1' },
+    );
+    expect(page.status).toBe(200);
+    expect(page.body.items).toHaveLength(1);
+    expect(page.body.totalCost).toBe(101000);
+    expect(page.body.total).toBe(101);
+
+    const defaultPage = await api('GET', `/vehicles/${vehicle.id}/parts`, {
+      userId: 'user-1',
+    });
+    expect(defaultPage.body.items).toHaveLength(100);
+    expect(defaultPage.body.totalCost).toBe(101000);
+    expect(defaultPage.body.total).toBe(101);
+  });
+
+  it('aplica el filtro unassigned al totalCost', async () => {
+    const vehicle = await createVehicle('user-1');
+    const assigned = await createPart('user-1', vehicle.id, { cost: 5000 });
+    await createPart('user-1', vehicle.id, { name: 'Libre', cost: 7000 });
+    await createMaintenance('user-1', vehicle.id, { partIds: [assigned.id] });
+
+    const all = await api('GET', `/vehicles/${vehicle.id}/parts`, {
+      userId: 'user-1',
+    });
+    const unassigned = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/parts?unassigned=true`,
+      { userId: 'user-1' },
+    );
+
+    expect(all.body.totalCost).toBe(12000);
+    expect(all.body.total).toBe(2);
+    expect(unassigned.body.items).toEqual([
+      expect.objectContaining({ name: 'Libre' }),
+    ]);
+    expect(unassigned.body.totalCost).toBe(7000);
+    expect(unassigned.body.total).toBe(1);
+  });
+
+  it('pagina sin repetir ni omitir filas usando id como desempate', async () => {
+    const vehicle = await createVehicle('user-1');
+    await parts.save(
+      Array.from({ length: 5 }, (_, index) => ({
+        vehicleId: vehicle.id,
+        name: `Repuesto ${index}`,
+        category: 'Otro' as const,
+        cost: 1000,
+        purchaseDate: '2026-01-01',
+      })),
+    );
+
+    const full = await api('GET', `/vehicles/${vehicle.id}/parts`, {
+      userId: 'user-1',
+    });
+    const pages = await Promise.all(
+      [0, 2, 4].map((offset) =>
+        api('GET', `/vehicles/${vehicle.id}/parts?limit=2&offset=${offset}`, {
+          userId: 'user-1',
+        }),
+      ),
+    );
+
+    const fullIds = (full.body.items as Array<{ id: string }>).map(
+      (part) => part.id,
+    );
+    const pagedIds = pages.flatMap((page) =>
+      (page.body.items as Array<{ id: string }>).map((part) => part.id),
+    );
+
+    expect(full.body.total).toBe(5);
+    expect(pages.map((page) => page.body.total)).toEqual([5, 5, 5]);
+    expect(pagedIds).toEqual(fullIds);
+    expect(new Set(pagedIds).size).toBe(5);
+  });
 });

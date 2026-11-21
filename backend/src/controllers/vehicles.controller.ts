@@ -17,6 +17,7 @@ import {
   UpdateMaintenanceInput,
   listMaintenancesQuerySchema,
 } from '../schemas/maintenance.schema';
+import { listPartsQuerySchema } from '../schemas/part.schema';
 import {
   CreateVehicleInput,
   UpdateVehicleInput,
@@ -97,30 +98,20 @@ export function decodeVin(vinDecoder: VinDecoderService): AsyncRouteHandler {
   };
 }
 
-const listVehiclePartsQuerySchema = z
-  .object({
-    unassigned: z
-      .enum(['true', 'false'], {
-        errorMap: () => ({ message: 'El filtro no es válido.' }),
-      })
-      .optional()
-      .transform((value) => value === 'true'),
-  })
-  .strip();
-
 export function listVehicleParts(
   partsService: PartsService,
 ): AsyncRouteHandler {
   return async (req, res) => {
-    const parsed = listVehiclePartsQuerySchema.safeParse(req.query);
+    const parsed = listPartsQuerySchema.safeParse(req.query);
 
     if (!parsed.success) {
       throw new ValidationError(formatIssues(parsed.error));
     }
 
-    const result = await partsService.listByVehicle(req.params.vehicleId, {
-      unassigned: parsed.data.unassigned,
-    });
+    const result = await partsService.listByVehicle(
+      req.params.vehicleId,
+      parsed.data,
+    );
     res.json(result);
   };
 }

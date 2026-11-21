@@ -13,6 +13,13 @@ export interface PartsRepositories {
 export interface PartsList {
   items: Part[];
   totalCost: number;
+  total: number;
+}
+
+export interface ListPartsOptions {
+  unassigned?: boolean;
+  limit: number;
+  offset: number;
 }
 
 export interface PartsExpensesSummary {
@@ -51,18 +58,33 @@ export class PartsService {
 
   async listByVehicle(
     vehicleId: string,
-    options: { unassigned?: boolean } = {},
+    options: ListPartsOptions,
   ): Promise<PartsList> {
-    const items = await this.repositories.parts.find({
-      where: options.unassigned
-        ? { vehicleId, maintenanceId: IsNull() }
-        : { vehicleId },
-      order: { purchaseDate: 'DESC', createdAt: 'DESC' },
-    });
+    const totalCostQuery = this.repositories.parts
+      .createQueryBuilder('part')
+      .select(
+        `COALESCE(SUM(${partCostSql(this.repositories.parts)}), 0)`,
+        'totalCost',
+      )
+      .where('part.vehicle_id = :vehicleId', { vehicleId });
 
-    const totalCost = items.reduce((total, part) => total + part.cost, 0);
+    if (options.unassigned) {
+      totalCostQuery.andWhere('part.maintenance_id IS NULL');
+    }
 
-    return { items, totalCost };
+    const [[items, total], totalCostRow] = await Promise.all([
+      this.repositories.parts.findAndCount({
+        where: options.unassigned
+          ? { vehicleId, maintenanceId: IsNull() }
+          : { vehicleId },
+        order: { purchaseDate: 'DESC', createdAt: 'DESC', id: 'ASC' },
+        take: options.limit,
+        skip: options.offset,
+      }),
+      totalCostQuery.getRawOne<{ totalCost: string }>(),
+    ]);
+
+    return { items, totalCost: Number(totalCostRow?.totalCost ?? 0), total };
   }
 
   async getExpensesSummary(vehicleId: string): Promise<PartsExpensesSummary> {

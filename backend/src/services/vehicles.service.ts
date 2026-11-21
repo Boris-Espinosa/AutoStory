@@ -164,18 +164,23 @@ export class VehiclesService {
     vehicleId: string,
     photoUrl: string | null,
   ): Promise<string | null> {
-    const vehicle = await this.repositories.vehicles.findOneBy({
-      id: vehicleId,
+    return this.repositories.vehicles.manager.transaction(async (manager) => {
+      // El bloqueo serializa reemplazos concurrentes: el segundo lee la key
+      // que el primero acaba de confirmar.
+      const vehicle = await manager.findOne(Vehicle, {
+        where: { id: vehicleId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!vehicle) {
+        throw new HttpError(404, 'Vehículo no encontrado.');
+      }
+
+      const previous = vehicle.photoUrl;
+      vehicle.photoUrl = photoUrl;
+      await manager.save(vehicle);
+
+      return previous;
     });
-
-    if (!vehicle) {
-      throw new HttpError(404, 'Vehículo no encontrado.');
-    }
-
-    const previous = vehicle.photoUrl;
-    vehicle.photoUrl = photoUrl;
-    await this.repositories.vehicles.save(vehicle);
-
-    return previous;
   }
 }

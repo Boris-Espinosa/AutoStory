@@ -128,6 +128,12 @@ async function countUploadedFiles(): Promise<number> {
   return (await fs.readdir(VEHICLE_UPLOADS_DIR)).length;
 }
 
+async function tempFileCount(): Promise<number> {
+  return (await fs.readdir(VEHICLE_UPLOADS_DIR)).filter((name) =>
+    name.endsWith('.tmp'),
+  ).length;
+}
+
 async function uploadPhoto(
   userId: string | undefined,
   vehicleId: string,
@@ -672,10 +678,68 @@ describe('POST /vehicles/:vehicleId/photo', () => {
     await expect(
       fs.access(uploadedFilePath(firstUrl)),
     ).rejects.toThrow();
+    await expect(
+      fs.access(uploadedFilePath(secondUrl)),
+    ).resolves.toBeUndefined();
+    expect(
+      await fs.readdir(path.dirname(uploadedFilePath(secondUrl))),
+    ).toEqual([path.basename(uploadedFilePath(secondUrl))]);
 
     const list = await api('GET', '/vehicles', { userId: 'user-1' });
     const [listed] = list.body as unknown as Array<{ photoUrl: string }>;
     expect(listed.photoUrl).toBe(secondUrl);
+  });
+
+  it('borra el temporal si storage.save falla', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const before = await tempFileCount();
+
+    jest
+      .spyOn(storage, 'save')
+      .mockRejectedValueOnce(new Error('fallo simulado'));
+
+    const response = await uploadPhoto(
+      'user-1',
+      vehicle.id,
+      'foto.png',
+      PNG_BYTES,
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ message: 'No se pudo guardar la foto.' });
+    expect(await tempFileCount()).toBe(before);
+  });
+
+  it('dos reemplazos concurrentes dejan una sola foto final', async () => {
+    const vehicle = await createVehicleAs('user-1');
+    const before = await tempFileCount();
+
+    const responses = await Promise.all([
+      uploadPhoto('user-1', vehicle.id, 'foto.png', PNG_BYTES),
+      uploadPhoto('user-1', vehicle.id, 'foto.png', PNG_BYTES),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const urls = responses.map((response) => response.body.photoUrl as string);
+    urls.forEach((url) => createdPhotos.push(url));
+
+    const stored = await dataSource
+      .getRepository(Vehicle)
+      .findOneByOrFail({ id: vehicle.id });
+    const finalUrl = storage.publicUrl(stored.photoUrl) as string;
+    expect(urls).toContain(finalUrl);
+
+    const finalPath = uploadedFilePath(finalUrl);
+    await expect(fs.access(finalPath)).resolves.toBeUndefined();
+    expect(await fs.readdir(path.dirname(finalPath))).toEqual([
+      path.basename(finalPath),
+    ]);
+
+    const replacedUrl = urls.find((url) => url !== finalUrl);
+    if (replacedUrl) {
+      await expect(fs.access(uploadedFilePath(replacedUrl))).rejects.toThrow();
+    }
+    expect(await tempFileCount()).toBe(before);
   });
 
   it('un fallo al borrar la foto anterior no rompe el reemplazo', async () => {

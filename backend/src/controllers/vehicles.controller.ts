@@ -360,7 +360,7 @@ export function uploadVehiclePhoto(
           req.params.vehicleId,
         );
       } catch (error) {
-        logError(
+        logWarn(
           'No se pudo borrar la foto anterior del vehículo.',
           error instanceof Error ? error.name : undefined,
         );
@@ -400,7 +400,7 @@ export function removeVehiclePhoto(
         req.params.vehicleId,
       );
     } catch (error) {
-      logError(
+      logWarn(
         'No se pudo borrar la foto del vehículo.',
         error instanceof Error ? error.name : undefined,
       );

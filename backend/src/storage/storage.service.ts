@@ -15,25 +15,11 @@ export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
 export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
 export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
 
-const VEHICLE_PHOTO_FILE = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+const VEHICLE_PHOTO_KEY =
+  /^vehicles\/(?!\.{1,2}(?=\/|$))[^/\\]+\/(?!\.{1,2}(?=\/|$))[^/\\]+\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
 
-function isVehiclePhotoKeyFormat(photo: string | null): photo is string {
-  if (photo === null) {
-    return false;
-  }
-
-  const [root, owner, vehicle, file, ...rest] = photo.split('/');
-
-  return (
-    rest.length === 0 &&
-    root === 'vehicles' &&
-    owner.length > 0 &&
-    vehicle.length > 0 &&
-    ![owner, vehicle].some(
-      (part) => part === '.' || part === '..' || part.includes('\\'),
-    ) &&
-    VEHICLE_PHOTO_FILE.test(file)
-  );
+export function isVehiclePhotoKeyFormat(photo: string | null): photo is string {
+  return typeof photo === 'string' && VEHICLE_PHOTO_KEY.test(photo);
 }
 
 export function isVehiclePhotoKey(

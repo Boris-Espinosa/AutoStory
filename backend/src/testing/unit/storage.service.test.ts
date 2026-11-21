@@ -6,6 +6,7 @@ import {
   StorageConfig,
   StorageService,
   VEHICLE_UPLOADS_DIR,
+  isVehiclePhotoKeyFormat,
 } from '../../storage/storage.service';
 
 const S3_CONFIG: StorageConfig = {
@@ -90,6 +91,28 @@ describe('StorageService con driver s3', () => {
       'Key de foto inválida.',
     );
 
+    expect(client.send).not.toHaveBeenCalled();
+  });
+
+  it('nunca lanza y rechaza keys malformadas sin tocar el bucket', () => {
+    const client = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
+    const valid = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+    const long = `vehicles/${USER_ID}/${VEHICLE_ID}/${'a'.repeat(10_000)}.png`;
+
+    expect(isVehiclePhotoKeyFormat('vehicles/user-1')).toBe(false);
+    expect(isVehiclePhotoKeyFormat('')).toBe(false);
+    expect(isVehiclePhotoKeyFormat('vehicles//x/y')).toBe(false);
+    expect(isVehiclePhotoKeyFormat(`vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png/extra`)).toBe(false);
+    expect(isVehiclePhotoKeyFormat(long)).toBe(false);
+    expect(isVehiclePhotoKeyFormat(valid)).toBe(true);
+
+    for (const key of ['vehicles/user-1', '', 'vehicles//x/y', `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png/extra`, long]) {
+      expect(() => storage.publicUrl(key)).not.toThrow();
+      expect(storage.publicUrl(key)).toBeNull();
+    }
+    expect(() => storage.publicUrl(valid)).not.toThrow();
+    expect(storage.publicUrl(valid)).toBe(`https://fotos.example.com/${valid}`);
     expect(client.send).not.toHaveBeenCalled();
   });
 

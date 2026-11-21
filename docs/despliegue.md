@@ -4,10 +4,14 @@ La API guarda las fotos de los vehículos con un `StorageService` que tiene dos
 drivers:
 
 - `disk` (por defecto): escribe en `backend/uploads/vehicles/` y guarda en
-  `photoUrl` una ruta relativa (`/uploads/vehicles/<uuid>.png`). Es el modo de
-  desarrollo.
+  `photoUrl` la clave interna `vehicles/<userId>/<vehicleId>/<uuid>.<ext>`.
+  La API no expone esa clave: construye la URL pública con `storage.publicUrl`
+  (por ejemplo `/uploads/vehicles/<userId>/<vehicleId>/<uuid>.<ext>`). Es el
+  modo de desarrollo.
 - `s3`: escribe en un bucket compatible con S3 (Cloudflare R2) y guarda en
-  `photoUrl` la URL pública completa. Es el modo recomendado en producción.
+  `photoUrl` la misma clave interna. La API devuelve la URL pública construida
+  por `storage.publicUrl` usando la base pública configurada. Es el modo
+  recomendado en producción.
 
 El driver se elige con `STORAGE_DRIVER`. En ambos modos se valida la firma real
 del archivo (JPG, PNG o WEBP) y el límite de 8 MB.
@@ -78,15 +82,16 @@ registran en los logs.
      -F "photo=@foto.png"
    ```
 
-3. La respuesta trae una `photoUrl` del tipo
-   `https://fotos.tudominio.cl/vehicles/<uuid>.png`. Ábrela en el navegador:
-   debe cargar sin credenciales.
+3. La respuesta trae una `photoUrl` pública construida por `storage.publicUrl`
+   con la clave `vehicles/<userId>/<vehicleId>/<uuid>.<ext>`, por ejemplo
+   `https://fotos.tudominio.cl/vehicles/<userId>/<vehicleId>/<uuid>.<ext>`.
+   Ábrela en el navegador: debe cargar sin credenciales.
 4. Reemplaza la foto y confirma que la anterior desapareció del bucket.
 5. Elimina el vehículo y confirma que su foto también se borró.
 
 ## Notas
 
-- Las fotos se guardan con la clave `vehicles/<uuid>.<ext>`.
+- Las fotos se guardan con la clave `vehicles/<userId>/<vehicleId>/<uuid>.<ext>`.
 - Al reemplazar o eliminar un vehículo se borra la foto anterior. Si el bucket
   falla, el error queda en el log pero la respuesta de la API no se bloquea.
 - Las `photoUrl` relativas existentes (`/uploads/vehicles/...`) siguen

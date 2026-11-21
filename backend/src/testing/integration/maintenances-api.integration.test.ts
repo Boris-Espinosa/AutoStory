@@ -799,4 +799,43 @@ describe('GET /vehicles/:vehicleId/parts?unassigned=true', () => {
       expect.objectContaining({ id: free.id }),
     ]);
   });
+
+  it('valida el parámetro unassigned', async () => {
+    const vehicle = await createVehicle('user-1');
+    const part = await createPart('user-1', vehicle.id);
+
+    const asFalse = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/parts?unassigned=false`,
+      { userId: 'user-1' },
+    );
+    const absent = await api('GET', `/vehicles/${vehicle.id}/parts`, {
+      userId: 'user-1',
+    });
+    const asArray = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/parts?unassigned[]=true`,
+      { userId: 'user-1' },
+    );
+    const invalid = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/parts?unassigned=yes`,
+      { userId: 'user-1' },
+    );
+
+    expect(asFalse.status).toBe(200);
+    expect(asFalse.body.items).toEqual([expect.objectContaining({ id: part.id })]);
+    expect(absent.status).toBe(200);
+    expect(absent.body.items).toEqual([expect.objectContaining({ id: part.id })]);
+    expect(asArray.status).toBe(400);
+    expect(asArray.body).toMatchObject({ message: 'Datos inválidos.' });
+    expect(asArray.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'unassigned' })]),
+    );
+    expect(invalid.status).toBe(400);
+    expect(invalid.body).toMatchObject({ message: 'Datos inválidos.' });
+    expect(invalid.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'unassigned' })]),
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import { z } from 'zod';
 import { AsyncRouteHandler } from '../common/async-handler';
 import { HttpError } from '../common/http-error';
 import { error as logError, warn as logWarn } from '../common/logger';
@@ -96,12 +97,29 @@ export function decodeVin(vinDecoder: VinDecoderService): AsyncRouteHandler {
   };
 }
 
+const listVehiclePartsQuerySchema = z
+  .object({
+    unassigned: z
+      .enum(['true', 'false'], {
+        errorMap: () => ({ message: 'El filtro no es válido.' }),
+      })
+      .optional()
+      .transform((value) => value === 'true'),
+  })
+  .strip();
+
 export function listVehicleParts(
   partsService: PartsService,
 ): AsyncRouteHandler {
   return async (req, res) => {
+    const parsed = listVehiclePartsQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      throw new ValidationError(formatIssues(parsed.error));
+    }
+
     const result = await partsService.listByVehicle(req.params.vehicleId, {
-      unassigned: req.query.unassigned === 'true',
+      unassigned: parsed.data.unassigned,
     });
     res.json(result);
   };

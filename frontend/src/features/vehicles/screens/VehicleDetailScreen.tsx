@@ -40,7 +40,7 @@ import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { AppointmentsList } from '../../appointments/components/AppointmentsList';
 import { MaintenancesTab } from '../../vehicle/MaintenancesTab';
-import { PartsTab } from '../../vehicle/PartsTab';
+import { PartsTab } from '../../parts/components/PartsTab';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import {
   colors,

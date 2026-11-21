@@ -304,67 +304,81 @@ export function uploadVehiclePhoto(
     }
 
     const source: Buffer | string = req.file.buffer ?? req.file.path;
-    // El tipo MIME (vacío o application/octet-stream) no decide nada: la
-    // firma real del archivo es la que valida el formato.
-    const extension = await detectImageExtension(source);
 
-    if (!extension) {
-      if (typeof source === 'string') {
-        await fs.rm(source, { force: true });
+    try {
+      // El tipo MIME (vacío o application/octet-stream) no decide nada: la
+      // firma real del archivo es la que valida el formato.
+      const extension = await detectImageExtension(source);
+
+      if (!extension) {
+        const error = new HttpError(
+          400,
+          'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
+        );
+        logPhotoUploadFailure(error, req.file);
+        throw error;
       }
-      const error = new HttpError(
-        400,
-        'El archivo no es una imagen válida (solo JPG, PNG o WEBP).',
-      );
-      logPhotoUploadFailure(error, req.file);
-      throw error;
+
+      let photoKey: string;
+
+      try {
+        photoKey = await storage.save(
+          source,
+          extension,
+          req.auth.userId,
+          req.params.vehicleId,
+        );
+      } catch (error) {
+        logPhotoUploadFailure(error, req.file);
+        throw new HttpError(500, 'No se pudo guardar la foto.');
+      }
+
+      let previous: string | null;
+
+      try {
+        previous = await vehiclesService.setPhoto(
+          req.params.vehicleId,
+          photoKey,
+        );
+      } catch (error) {
+        // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
+        await removeOwnedPhoto(
+          storage,
+          photoKey,
+          req.auth.userId,
+          req.params.vehicleId,
+        ).catch(() => undefined);
+        logPhotoUploadFailure(error, req.file);
+        throw error;
+      }
+
+      try {
+        await removeOwnedPhoto(
+          storage,
+          previous,
+          req.auth.userId,
+          req.params.vehicleId,
+        );
+      } catch (error) {
+        logError(
+          'No se pudo borrar la foto anterior del vehículo.',
+          error instanceof Error ? error.name : undefined,
+        );
+      }
+
+      res.json({ photoUrl: storage.publicUrl(photoKey) });
+    } finally {
+      if (typeof source === 'string') {
+        try {
+          await fs.rm(source, { force: true });
+        } catch (error) {
+          logWarn(
+            'No se pudo borrar el archivo temporal de la foto.',
+            error instanceof Error ? error.name : undefined,
+          );
+        }
+      }
     }
-
-    let photoKey: string;
-
-    try {
-      photoKey = await storage.save(
-        source,
-        extension,
-        req.auth.userId,
-        req.params.vehicleId,
-      );
-    } catch (error) {
-      logPhotoUploadFailure(error, req.file);
-      throw new HttpError(500, 'No se pudo guardar la foto.');
-    }
-
-    let previous: string | null;
-
-    try {
-      previous = await vehiclesService.setPhoto(req.params.vehicleId, photoKey);
-    } catch (error) {
-      // Si la base rechaza la foto, no debe quedar huérfana en el almacenamiento.
-      await removeOwnedPhoto(
-        storage,
-        photoKey,
-        req.auth.userId,
-        req.params.vehicleId,
-      ).catch(() => undefined);
-      logPhotoUploadFailure(error, req.file);
-      throw error;
-    }
-
-    try {
-      await removeOwnedPhoto(
-        storage,
-        previous,
-        req.auth.userId,
-        req.params.vehicleId,
-      );
-    } catch (error) {
-      logError(
-        'No se pudo borrar la foto anterior del vehículo.',
-        error instanceof Error ? error.name : undefined,
-      );
-    }
-
-    res.json({ photoUrl: storage.publicUrl(photoKey) });
   };
 }
 

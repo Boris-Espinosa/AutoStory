@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { apiRequest } from './client';
+import { apiRequest } from '../../../api/client';
 
 export interface Me {
   id: string;

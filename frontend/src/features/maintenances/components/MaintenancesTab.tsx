@@ -2,15 +2,15 @@ import { useAuth } from '@clerk/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { useMaintenanceList } from '../../api/maintenances';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { ListRow } from '../../components/ui/ListRow';
-import { useBreakpoint } from '../../hooks/useBreakpoint';
-import { colors, layout, spacing, typography } from '../../theme';
-import { formatChileanAmount, isoDateToDisplay } from '../../utils/format';
+import { useMaintenanceList } from '../../../api/maintenances';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { ListRow } from '../../../components/ui/ListRow';
+import { useBreakpoint } from '../../../hooks/useBreakpoint';
+import { colors, layout, spacing, typography } from '../../../theme';
+import { formatChileanAmount, isoDateToDisplay } from '../../../utils/format';
 
 export function MaintenancesTab({ vehicleId }: { vehicleId: string }) {
   const listQuery = useMaintenanceList(vehicleId || null);

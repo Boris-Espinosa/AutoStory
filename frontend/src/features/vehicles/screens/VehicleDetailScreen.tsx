@@ -39,7 +39,7 @@ import { Screen } from '../../../components/ui/Screen';
 import { SectionHeader } from '../../../components/ui/SectionHeader';
 import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { AppointmentsList } from '../../appointments/components/AppointmentsList';
-import { MaintenancesTab } from '../../vehicle/MaintenancesTab';
+import { MaintenancesTab } from '../../maintenances/components/MaintenancesTab';
 import { PartsTab } from '../../parts/components/PartsTab';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import {

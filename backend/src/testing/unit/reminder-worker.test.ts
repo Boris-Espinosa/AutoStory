@@ -21,6 +21,7 @@ afterEach(() => {
 
 interface FakeManager {
   find: jest.Mock;
+  findOne: jest.Mock;
   update: jest.Mock;
   transaction: jest.Mock;
 }
@@ -29,10 +30,12 @@ function buildDataSource() {
   const pending: string[] = [];
   const cleanupFind = jest.fn(async () => pending.map((id) => ({ id })));
   const dueFind = jest.fn(async () => pending.map((id) => ({ id })));
+  const findOne = jest.fn(async () => null);
   const update = jest.fn(async () => ({ affected: 1 }));
 
   const manager: FakeManager = {
     find: dueFind,
+    findOne,
     update,
     transaction: jest.fn(),
   };
@@ -154,5 +157,19 @@ describe('limpieza de consecutiveFailures', () => {
     );
     expect(dueFind).toHaveBeenCalledTimes(2);
     expect(attempts(errorSpy)).toEqual(['1', '2']);
+  });
+});
+
+describe('descarte de recordatorios sin cita', () => {
+  it('marca como procesado un recordatorio cuya cita ya no existe', async () => {
+    const { dataSource, pending, update } = buildDataSource();
+    pending.push(REMINDER_ID);
+
+    expect(await processDueReminders(dataSource, clock, NOW)).toBe(1);
+    expect(update).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: REMINDER_ID },
+      { processedAt: NOW },
+    );
   });
 });

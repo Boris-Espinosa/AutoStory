@@ -251,37 +251,66 @@ describe('processDueReminders', () => {
     expect(await notifications.count()).toBe(0);
   });
 
-  it('descarta sin notificar citas cerradas o ya comenzadas', async () => {
+  it('entrega un recordatorio si la cita empezó hace menos del margen', async () => {
     const vehicle = await seedVehicle('user-1');
-    const cancelled = await seedAppointment(vehicle.id, {
-      status: AppointmentStatus.CANCELLED,
-      cancelledAt: now,
+    const appointment = await seedAppointment(vehicle.id, {
+      scheduledAt: new Date(now.getTime() - 29 * 60_000),
     });
-    const completed = await seedAppointment(vehicle.id, {
-      status: AppointmentStatus.COMPLETED,
-      completedAt: now,
-    });
-    const started = await seedAppointment(vehicle.id, {
-      scheduledAt: new Date(now.getTime() - 60_000),
-    });
-    const due = new Date(now.getTime() - 2 * HOUR_MS);
+    const reminder = await seedReminder(
+      appointment.id,
+      new Date(now.getTime() - 2 * HOUR_MS),
+    );
 
-    for (const appointment of [cancelled, completed, started]) {
-      await seedReminder(appointment.id, due);
-    }
-
-    await processDueReminders(dataSource, clock);
-
-    expect(await notifications.count()).toBe(0);
+    expect(await processDueReminders(dataSource, clock)).toBe(1);
     expect(
-      await reminders.count({ where: { processedAt: new Date(now) } }),
-    ).toBe(3);
+      await notifications.count({ where: { reminderId: reminder.id } }),
+    ).toBe(1);
+  });
+
+  it('descarta con log citas cerradas o iniciada hace más del margen', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const vehicle = await seedVehicle('user-1');
+      const cancelled = await seedAppointment(vehicle.id, {
+        status: AppointmentStatus.CANCELLED,
+        cancelledAt: now,
+      });
+      const completed = await seedAppointment(vehicle.id, {
+        status: AppointmentStatus.COMPLETED,
+        completedAt: now,
+      });
+      const started = await seedAppointment(vehicle.id, {
+        scheduledAt: new Date(now.getTime() - 31 * 60_000),
+      });
+      const due = new Date(now.getTime() - 2 * HOUR_MS);
+
+      for (const appointment of [cancelled, completed]) {
+        await seedReminder(appointment.id, due);
+      }
+      const lateReminder = await seedReminder(started.id, due);
+
+      await processDueReminders(dataSource, clock);
+
+      expect(await notifications.count()).toBe(0);
+      expect(
+        await reminders.count({ where: { processedAt: new Date(now) } }),
+      ).toBe(3);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `reminderId=${lateReminder.id} motivo=cita_iniciada_hace_30_minutos_o_mas`,
+        ),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('entrega un recordatorio atrasado mientras la cita no haya comenzado', async () => {
     const vehicle = await seedVehicle('user-1');
     const appointment = await seedAppointment(vehicle.id, {
-      scheduledAt: new Date(now.getTime() + 55 * 60_000),
+      scheduledAt: new Date(now.getTime() + 5 * 60_000),
     });
     await seedReminder(appointment.id, new Date(now.getTime() - 65 * 60_000));
 

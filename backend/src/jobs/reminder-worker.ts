@@ -22,6 +22,7 @@ import {
 import { createNotifications, recipientsFor } from './notify';
 
 const BATCH_SIZE = 100;
+const REMINDER_LATE_GRACE_MINUTES = 30;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const NOTIFICATION_RETENTION_MS = 90 * 86_400_000;
@@ -49,10 +50,25 @@ async function processReminder(
   if (
     appointment === null ||
     vehicle === null ||
-    appointment.status !== AppointmentStatus.SCHEDULED ||
-    appointment.scheduledAt.getTime() <= now.getTime()
+    appointment.status !== AppointmentStatus.SCHEDULED
   ) {
-    // La cita ya no existe, se cerró o ya comenzó: no se notifica.
+    // La cita ya no existe o se cerró: no se notifica.
+    await manager.update(
+      AppointmentReminder,
+      { id: reminder.id },
+      { processedAt: now },
+    );
+    return;
+  }
+
+  if (
+    now.getTime() - appointment.scheduledAt.getTime() >=
+    REMINDER_LATE_GRACE_MINUTES * 60_000
+  ) {
+    warn(
+      'El recordatorio se descartó por una cita iniciada hace demasiado tiempo.',
+      `reminderId=${reminder.id} motivo=cita_iniciada_hace_30_minutos_o_mas`,
+    );
     await manager.update(
       AppointmentReminder,
       { id: reminder.id },

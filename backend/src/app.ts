@@ -47,6 +47,7 @@ import {
   ProfileProvider,
   UserSyncService,
 } from './services/user-sync.service';
+import { shouldMountLocalUploads } from './storage/local-uploads';
 
 export function createApp(
   dataSource: DataSource = AppDataSource,
@@ -175,9 +176,16 @@ export function createApp(
     app.use(clerkMiddleware(clerkOptions));
   }
 
-  // Las fotos se sirven por URL con nombre uuid, imposibles de adivinar.
-  // Limitación aceptada del prototipo: /uploads no comprueba membresía.
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Fuera de producción con disk se sirve /uploads sin autenticación; en
+  // producción env.ts exige s3 y las fotos salen de la URL pública del bucket.
+  if (
+    shouldMountLocalUploads({
+      nodeEnv: env.nodeEnv,
+      storageDriver: env.storage.driver,
+    })
+  ) {
+    app.use('/uploads', express.static(UPLOADS_DIR));
+  }
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });

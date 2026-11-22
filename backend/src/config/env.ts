@@ -126,6 +126,15 @@ const envSchema = z
       }
     }
 
+    if (value.NODE_ENV === 'production' && value.STORAGE_DRIVER !== 's3') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_DRIVER'],
+        message:
+          'STORAGE_DRIVER=s3 es obligatorio cuando NODE_ENV=production.',
+      });
+    }
+
     if (value.STORAGE_DRIVER === 's3' && value.NODE_ENV === 'production') {
       const required = [
         'S3_ENDPOINT',

@@ -107,6 +107,64 @@ describe('configuración de entorno', () => {
     ).toThrow(/comodines/);
   });
 
+  it('en producción exige STORAGE_DRIVER=s3', () => {
+    const base = {
+      NODE_ENV: 'production',
+      AUTH_MODE: 'clerk',
+      CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+      CLERK_SECRET_KEY: 'sk_test_ejemplo',
+      DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+      CORS_ORIGIN: 'https://app.test',
+    };
+    const message =
+      /STORAGE_DRIVER=s3 es obligatorio cuando NODE_ENV=production/;
+
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: 'disk' })).toThrow(
+      message,
+    );
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: undefined })).toThrow(
+      message,
+    );
+  });
+
+  it('permite disk fuera de producción', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'development',
+        AUTH_MODE: 'dev-header',
+        DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+        STORAGE_DRIVER: 'disk',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'test',
+        AUTH_MODE: 'dev-header',
+        STORAGE_DRIVER: 'disk',
+      }),
+    ).not.toThrow();
+  });
+
+  it('en producción con STORAGE_DRIVER=s3 y su configuración arranca', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        AUTH_MODE: 'clerk',
+        CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+        CLERK_SECRET_KEY: 'sk_test_ejemplo',
+        DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+        CORS_ORIGIN: 'https://app.test',
+        STORAGE_DRIVER: 's3',
+        S3_ENDPOINT: 'https://s3.test',
+        S3_REGION: 'auto',
+        S3_BUCKET: 'autostory-fotos',
+        S3_ACCESS_KEY_ID: 'access',
+        S3_SECRET_ACCESS_KEY: 'secret',
+        S3_PUBLIC_BASE_URL: 'https://fotos.test',
+      }),
+    ).not.toThrow();
+  });
+
   it('en producción con STORAGE_DRIVER=s3 exige toda la configuración S3', () => {
     expect(() =>
       loadEnv({

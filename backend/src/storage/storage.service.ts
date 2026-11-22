@@ -16,7 +16,10 @@ export const UPLOADS_DIR = env.uploadsDir;
 export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
 export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
 export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
-export const DEFAULT_SIGNED_URL_TTL_SECONDS = 3600;
+export const SIGNING_WINDOW_SECONDS = 1800;
+export const MIN_SIGNED_URL_TTL_SECONDS = 3600;
+const SIGNED_URL_EXPIRES_IN =
+  MIN_SIGNED_URL_TTL_SECONDS + SIGNING_WINDOW_SECONDS;
 
 const VEHICLE_PHOTO_KEY =
   /^vehicles\/(?!\.{1,2}(?=\/|$))[^/\\]+\/(?!\.{1,2}(?=\/|$))[^/\\]+\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
@@ -166,10 +169,7 @@ export class StorageService {
   }
 
   /** Devuelve una URL de lectura firmada (s3) o la URL local (disk). */
-  async signedUrl(
-    photo: string | null,
-    ttlSeconds: number = DEFAULT_SIGNED_URL_TTL_SECONDS,
-  ): Promise<string | null> {
+  async signedUrl(photo: string | null): Promise<string | null> {
     if (!isVehiclePhotoKeyFormat(photo)) {
       return null;
     }
@@ -178,10 +178,17 @@ export class StorageService {
       return this.publicUrl(photo);
     }
 
+    const ahoraSegundos = Math.floor(Date.now() / 1000);
+    const firmaSegundos =
+      Math.floor(ahoraSegundos / SIGNING_WINDOW_SECONDS) * SIGNING_WINDOW_SECONDS;
+
     return getSignedUrl(
       this.s3,
       new GetObjectCommand({ Bucket: this.s3Config!.bucket, Key: photo }),
-      { expiresIn: ttlSeconds },
+      {
+        expiresIn: SIGNED_URL_EXPIRES_IN,
+        signingDate: new Date(firmaSegundos * 1000),
+      },
     );
   }
 

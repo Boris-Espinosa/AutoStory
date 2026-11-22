@@ -7,7 +7,8 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
-  DEFAULT_SIGNED_URL_TTL_SECONDS,
+  MIN_SIGNED_URL_TTL_SECONDS,
+  SIGNING_WINDOW_SECONDS,
   StorageConfig,
   StorageService,
   VEHICLE_UPLOADS_DIR,
@@ -50,7 +51,29 @@ function fakeClient() {
   return { client, send };
 }
 
+function secondsFromAmzDate(url: URL): number {
+  const value = url.searchParams.get('X-Amz-Date');
+  if (!value) {
+    throw new Error('falta X-Amz-Date');
+  }
+
+  return (
+    Date.parse(
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}Z`,
+    ) / 1000
+  );
+}
+
 describe('StorageService con driver s3', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-22T10:07:13Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('sube la foto con prefijo de dueño y vehículo y devuelve la key', async () => {
     const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
@@ -145,19 +168,67 @@ describe('StorageService con driver s3', () => {
     expect(url.pathname).toContain(`/${S3_CONFIG.s3.bucket}/${key}`);
     expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
     expect(url.searchParams.get('X-Amz-Expires')).toBe(
-      String(DEFAULT_SIGNED_URL_TTL_SECONDS),
+      String(MIN_SIGNED_URL_TTL_SECONDS + SIGNING_WINDOW_SECONDS),
     );
+    expect(url.searchParams.get('X-Amz-Date')).toBe('20261122T100000Z');
     expect(url.searchParams.has('X-Amz-Signature')).toBe(true);
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('permite sobrescribir la expiración y rechaza keys inválidas al firmar', async () => {
+  it('alinea la fecha de firma a ventanas de 30 minutos y expira en 5400 s', async () => {
     const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
     const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
 
-    const signed = await storage.signedUrl(key, 900);
-    expect(new URL(signed!).searchParams.get('X-Amz-Expires')).toBe('900');
+    const url = new URL((await storage.signedUrl(key))!);
+
+    expect(url.searchParams.get('X-Amz-Expires')).toBe(
+      String(MIN_SIGNED_URL_TTL_SECONDS + SIGNING_WINDOW_SECONDS),
+    );
+    expect(url.searchParams.get('X-Amz-Date')).toBe('20261122T100000Z');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('repite la misma URL dentro de una ventana y cambia en la siguiente', async () => {
+    const { client } = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
+    const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+
+    const primera = await storage.signedUrl(key);
+
+    jest.setSystemTime(new Date('2026-11-22T10:29:59Z'));
+    expect(await storage.signedUrl(key)).toBe(primera);
+
+    jest.setSystemTime(new Date('2026-11-22T10:30:00Z'));
+    expect(await storage.signedUrl(key)).not.toBe(primera);
+  });
+
+  it('mantiene entre 3600 y 5400 s de vida al inicio y al final de la ventana', async () => {
+    const { client } = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
+    const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+
+    for (const instante of [
+      '2026-11-22T10:00:00Z',
+      '2026-11-22T10:29:59Z',
+    ]) {
+      jest.setSystemTime(new Date(instante));
+      const url = new URL((await storage.signedUrl(key))!);
+      const expira =
+        secondsFromAmzDate(url) +
+        Number(url.searchParams.get('X-Amz-Expires'));
+      const restante = expira - Math.floor(Date.now() / 1000);
+
+      expect(restante).toBeGreaterThanOrEqual(MIN_SIGNED_URL_TTL_SECONDS);
+      expect(restante).toBeLessThanOrEqual(
+        MIN_SIGNED_URL_TTL_SECONDS + SIGNING_WINDOW_SECONDS,
+      );
+    }
+  });
+
+  it('devuelve null para keys inválidas al firmar y no toca el bucket', async () => {
+    const { client, send } = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
 
     for (const invalid of ['', '../../foto.png', null]) {
       expect(await storage.signedUrl(invalid)).toBeNull();

@@ -1,8 +1,13 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import {
+  DEFAULT_SIGNED_URL_TTL_SECONDS,
   StorageConfig,
   StorageService,
   VEHICLE_UPLOADS_DIR,
@@ -32,12 +37,22 @@ function keyPattern(extension: string): RegExp {
 }
 
 function fakeClient() {
-  return { send: jest.fn().mockResolvedValue({}) };
+  const client = new S3Client({
+    endpoint: 'https://cuenta.r2.cloudflarestorage.com',
+    region: 'auto',
+    forcePathStyle: true,
+    credentials: { accessKeyId: 'clave', secretAccessKey: 'secreto' },
+  });
+  const send = jest
+    .spyOn(client, 'send')
+    .mockResolvedValue({} as never) as unknown as jest.Mock;
+
+  return { client, send };
 }
 
 describe('StorageService con driver s3', () => {
   it('sube la foto con prefijo de dueño y vehículo y devuelve la key', async () => {
-    const client = fakeClient();
+    const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
 
     const key = await storage.save(PNG, 'png', USER_ID, VEHICLE_ID);
@@ -45,7 +60,7 @@ describe('StorageService con driver s3', () => {
     expect(key).toMatch(keyPattern('png'));
     expect(storage.publicUrl(key)).toBe(`https://fotos.example.com/${key}`);
 
-    const [command] = client.send.mock.calls[0] as [PutObjectCommand];
+    const [command] = send.mock.calls[0] as [PutObjectCommand];
     expect(command).toBeInstanceOf(PutObjectCommand);
     expect(command.input).toMatchObject({
       Bucket: 'autostory-fotos',
@@ -56,7 +71,7 @@ describe('StorageService con driver s3', () => {
   });
 
   it('al reemplazar una foto borra la anterior del bucket', async () => {
-    const client = fakeClient();
+    const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
 
     const first = await storage.save(PNG, 'png', USER_ID, VEHICLE_ID);
@@ -65,7 +80,7 @@ describe('StorageService con driver s3', () => {
 
     expect(second).not.toBe(first);
 
-    const [command] = client.send.mock.calls[2] as [DeleteObjectCommand];
+    const [command] = send.mock.calls[2] as [DeleteObjectCommand];
     expect(command).toBeInstanceOf(DeleteObjectCommand);
     expect(command.input).toMatchObject({
       Bucket: 'autostory-fotos',
@@ -74,7 +89,7 @@ describe('StorageService con driver s3', () => {
   });
 
   it('devuelve null para un valor antiguo y rechaza remove sin tocar el bucket', async () => {
-    const client = fakeClient();
+    const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
 
     expect(storage.publicUrl('foto-antigua')).toBeNull();
@@ -91,11 +106,11 @@ describe('StorageService con driver s3', () => {
       'Key de foto inválida.',
     );
 
-    expect(client.send).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('nunca lanza y rechaza keys malformadas sin tocar el bucket', () => {
-    const client = fakeClient();
+    const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
     const valid = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
     const long = `vehicles/${USER_ID}/${VEHICLE_ID}/${'a'.repeat(10_000)}.png`;
@@ -113,12 +128,46 @@ describe('StorageService con driver s3', () => {
     }
     expect(() => storage.publicUrl(valid)).not.toThrow();
     expect(storage.publicUrl(valid)).toBe(`https://fotos.example.com/${valid}`);
-    expect(client.send).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('firma una URL de lectura GET en el endpoint S3, no en la base pública', async () => {
+    const { client, send } = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
+    const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+
+    const signed = await storage.signedUrl(key);
+
+    expect(signed).not.toBeNull();
+    const url = new URL(signed!);
+    expect(url.host).toBe('cuenta.r2.cloudflarestorage.com');
+    expect(url.host).not.toBe('fotos.example.com');
+    expect(url.pathname).toContain(`/${S3_CONFIG.s3.bucket}/${key}`);
+    expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
+    expect(url.searchParams.get('X-Amz-Expires')).toBe(
+      String(DEFAULT_SIGNED_URL_TTL_SECONDS),
+    );
+    expect(url.searchParams.has('X-Amz-Signature')).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('permite sobrescribir la expiración y rechaza keys inválidas al firmar', async () => {
+    const { client, send } = fakeClient();
+    const storage = new StorageService(S3_CONFIG, client);
+    const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+
+    const signed = await storage.signedUrl(key, 900);
+    expect(new URL(signed!).searchParams.get('X-Amz-Expires')).toBe('900');
+
+    for (const invalid of ['', '../../foto.png', null]) {
+      expect(await storage.signedUrl(invalid)).toBeNull();
+    }
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('propaga el error del bucket para que quien llama decida', async () => {
-    const client = fakeClient();
-    client.send.mockRejectedValueOnce(new Error('sin conexión'));
+    const { client, send } = fakeClient();
+    send.mockRejectedValueOnce(new Error('sin conexión'));
     const storage = new StorageService(S3_CONFIG, client);
 
     await expect(
@@ -147,6 +196,15 @@ describe('StorageService con driver disk', () => {
     await expect(fs.access(finalPath)).rejects.toThrow();
 
     await fs.rm(ownerDir, { recursive: true, force: true });
+  });
+
+  it('en disk devuelve la misma URL que publicUrl', async () => {
+    const storage = new StorageService({ driver: 'disk', s3: {} });
+    const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
+
+    expect(await storage.signedUrl(key)).toBe(storage.publicUrl(key));
+    expect(await storage.signedUrl(key)).toBe(`/uploads/${key}`);
+    expect(await storage.signedUrl('../../foto.png')).toBeNull();
   });
 
   it('devuelve null para un valor antiguo y rechaza remove sin tocar disco', async () => {

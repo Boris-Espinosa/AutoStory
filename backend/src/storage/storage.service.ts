@@ -3,9 +3,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env';
 
 export type ImageExtension = 'jpg' | 'png' | 'webp';
@@ -14,6 +16,7 @@ export const UPLOADS_DIR = env.uploadsDir;
 export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
 export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
 export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
+export const DEFAULT_SIGNED_URL_TTL_SECONDS = 3600;
 
 const VEHICLE_PHOTO_KEY =
   /^vehicles\/(?!\.{1,2}(?=\/|$))[^/\\]+\/(?!\.{1,2}(?=\/|$))[^/\\]+\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
@@ -53,21 +56,19 @@ export interface StorageConfig {
   s3: S3StorageConfig;
 }
 
-type S3Sender = Pick<S3Client, 'send'>;
-
 /**
  * Guarda fotos en disco (desarrollo) o en un bucket S3 compatible (R2).
  * `save` recibe un Buffer (modo s3, Multer en memoria) o una ruta temporal
  * (modo disk, Multer en disco) y devuelve la key a guardar en la BD.
  */
 export class StorageService {
-  private readonly s3: S3Sender | null;
+  private readonly s3: S3Client | null;
   private readonly s3Config: Required<S3StorageConfig> | null;
   private readonly publicBase: string;
 
   constructor(
     private readonly config: StorageConfig,
-    client?: S3Sender,
+    client?: S3Client,
   ) {
     if (config.driver === 'disk') {
       this.s3 = null;
@@ -162,6 +163,26 @@ export class StorageService {
     }
 
     return `${this.publicBase}${photo}`;
+  }
+
+  /** Devuelve una URL de lectura firmada (s3) o la URL local (disk). */
+  async signedUrl(
+    photo: string | null,
+    ttlSeconds: number = DEFAULT_SIGNED_URL_TTL_SECONDS,
+  ): Promise<string | null> {
+    if (!isVehiclePhotoKeyFormat(photo)) {
+      return null;
+    }
+
+    if (!this.s3) {
+      return this.publicUrl(photo);
+    }
+
+    return getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: this.s3Config!.bucket, Key: photo }),
+      { expiresIn: ttlSeconds },
+    );
   }
 
   /** Borra solo keys válidas de este almacenamiento. */

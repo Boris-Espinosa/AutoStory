@@ -146,7 +146,9 @@ async function fetchApi(
   headers: Record<string, string>,
   options: RequestOptions = {},
 ): Promise<Response> {
-  const retries = options.retries ?? RETRY_DELAYS_MS.length;
+  const method = (init.method ?? 'GET').toUpperCase();
+  const isIdempotentRead = method === 'GET' || method === 'HEAD';
+  const retries = options.retries ?? (isIdempotentRead ? RETRY_DELAYS_MS.length : 0);
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
 
   for (let attempt = 0; ; attempt += 1) {
@@ -178,7 +180,7 @@ async function fetchApi(
   notifyServerWaking(false);
 
   if (__DEV__) {
-    console.warn('[auth] api', (init.method ?? 'GET').toUpperCase(), path, 'sin conexión');
+    console.warn('[auth] api', method, path, 'sin conexión');
   }
 
   throw new ApiError(

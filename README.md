@@ -6,14 +6,25 @@ Demo del frontend: https://autostory-frontend.vercel.app
 
 ## Origen del proyecto
 
-El proyecto comenzó como un trabajo de la universidad.
-
-<!-- TODO: institución, asignatura, año y equipo/rol -->
+El proyecto comenzó como un trabajo de la Universidad del Bío-Bío, Concepción, para la asignatura Modelamiento de Procesos e Información. Fue creado por Boris Espinosa.
 
 ## Demo y capturas
 
-- Demo web: https://autostory-frontend.vercel.app
-- Capturas de pantalla: <!-- TODO: agregar capturas de la app (no hay imágenes de pantallas en el repositorio) -->
+Demo web: https://autostory-frontend.vercel.app
+
+Las capturas están en `frontend/public/capturas/` (los nombres de archivo indican la pantalla mostrada):
+
+<img src="frontend/public/capturas/autostory-sign-in.png" alt="Inicio de sesión" width="600">
+
+<img src="frontend/public/capturas/autostory-vehiculos.png" alt="Listado de vehículos" width="600">
+
+<img src="frontend/public/capturas/autostory-_vehicles_new.png" alt="Formulario de nuevo vehículo" width="600">
+
+<img src="frontend/public/capturas/autostory-vehiculo-resumen.png" alt="Resumen del vehículo" width="600">
+
+<img src="frontend/public/capturas/autostory-appointments.png" alt="Citas" width="600">
+
+<img src="frontend/public/capturas/autostory-notifications.png" alt="Notificaciones" width="600">
 
 ## Funcionalidades
 
@@ -29,9 +40,7 @@ El proyecto comenzó como un trabajo de la universidad.
 - Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guardias que comprueban la pertenencia o la propiedad antes de permitir la acción (`backend/src/entities/UserVehicle.ts:13-22`, `backend/src/services/vehicle-access.service.ts:22-40`, `backend/src/middlewares/vehicle-access.middleware.ts:5-20`).
 - Inicio de sesión con Google o Apple a través de Clerk (`frontend/src/features/auth/screens/SignInScreen.tsx:52,209-224`, `frontend/app.json:34-39`). En Expo Go, Apple no está disponible (`frontend/src/features/auth/screens/SignInScreen.tsx:119-120`).
 
-La entidad y la tabla de solicitudes de compartir vehículo existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`), pero no se encontraron rutas en el backend ni pantallas en el frontend para crear o responder esas solicitudes.
-
-<!-- TODO: decidir si se documenta el flujo de compartir vehículo como funcionalidad o solo como modelo de datos -->
+La entidad y la tabla de solicitudes de compartir vehículo existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`), pero no hay rutas en el backend ni pantallas en el frontend para crear o responder esas solicitudes. Por el momento se documenta solo como modelo de datos.
 
 ## Stack tecnológico
 
@@ -123,9 +132,7 @@ Fuente de la estructura: `git ls-files`. `frontend/docs/` y `backend/docs/` no e
 - PostgreSQL y una base de datos para la API (`backend/.env.example:7-8`, `backend/src/db/data-source.ts:53`).
 - Una instancia de Clerk para el modo de autenticación `clerk` (`backend/.env.example:26-34`).
 - Para fotos en producción, un bucket compatible con S3; el repositorio documenta Cloudflare R2 (`docs/despliegue.md:1-13`).
-- Para la app móvil, Expo; el proyecto define un perfil de build de desarrollo en EAS (`frontend/eas.json:5-13`).
-
-<!-- TODO: versión mínima de npm y pasos de instalación de Expo/Android Studio según el entorno del lector -->
+- Para la app móvil, Expo; el proyecto define un perfil de build de desarrollo en EAS (`frontend/eas.json:5-13`). Los scripts `npm run android` y `npm run ios` se ejecutan con el entorno de Expo ya instalado (`frontend/package.json:42-43`). El repositorio no fija una versión mínima de npm ni instrucciones de Android Studio o Xcode, así que no se especifican aquí.
 
 ## Ejecución local
 
@@ -174,7 +181,7 @@ Los comandos se ejecutan desde PowerShell, en la carpeta correspondiente.
 
    La URL de la API del frontend se toma de `EXPO_PUBLIC_API_URL` (`frontend/src/api/client.ts:2-4`).
 
-<!-- TODO: comprobar y documentar el flujo completo de arranque con Clerk en local -->
+Si se usa Clerk en local, hacen falta `AUTH_MODE=clerk` con `CLERK_PUBLISHABLE_KEY` y `CLERK_SECRET_KEY` en el backend, y `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` en el frontend (`backend/.env.example:26-34`, `frontend/.env.example:4-5`). La configuración de los orígenes y las URLs de redirección para el inicio de sesión se describe en `docs/clerk-expo-go.md`. Como alternativa fuera de producción, el backend admite `AUTH_MODE=dev-header` con la cabecera `x-user-id` (`backend/src/config/env.ts:99-106`, `backend/src/middlewares/auth.middleware.ts:28-50`).
 
 ## Variables de entorno
 
@@ -276,15 +283,13 @@ Frontend:
 - Comprobación de tipos con `npx tsc --noEmit` (`frontend/tsconfig.json:1-7`). No es un script de `package.json`.
 - El build de Vercel ejecuta `node scripts/check-env.mjs && npx expo export -p web` (`frontend/vercel.json:2`).
 
-<!-- TODO: añadir una prueba de humo del frontend si se decide documentarla -->
-
 ## Despliegue
 
 - Frontend web: la configuración de Vercel define `buildCommand: node scripts/check-env.mjs && npx expo export -p web`, `outputDirectory: dist` y reenvía todas las rutas a `/` (`frontend/vercel.json:2-7`). La demo es: https://autostory-frontend.vercel.app
 - Móvil: `frontend/eas.json:5-13` define un perfil de build `development` con `developmentClient`, distribución `internal` y APK de Android. El esquema de la app es `autostory` (`frontend/app.json:8`).
 - Backend y fotos: la guía versionada `docs/despliegue.md` describe el bucket privado compatible con R2, las variables S3 y la comprobación de las URLs firmadas; también menciona Render como entorno donde configurar las variables de producción (`docs/despliegue.md:58-125`).
 
-URL del backend desplegado: <!-- TODO: añadir la URL real del backend; los docs versionados solo muestran un placeholder -->
+API desplegada: https://autostory-ym5q.onrender.com
 
 ## Seguridad y decisiones técnicas
 
@@ -326,8 +331,8 @@ git clone https://github.com/Boris-Espinosa/AutoStory.git
 
 Fuente del comando: `git remote -v`.
 
-Autor: <!-- TODO: nombre del autor; no aparece en los package.json -->
+Autor: Boris Espinosa (creador del proyecto).
 
-Licencia: no hay un archivo `LICENSE` en la raíz del repositorio. El único archivo versionado es `frontend/LICENSE:1-3`, que contiene la licencia MIT con copyright de "650 Industries, Inc. (aka Expo)".
+Licencia: ISC, según lo declarado por el autor. El repositorio todavía no incluye un archivo `LICENSE` del proyecto; el único archivo versionado es `frontend/LICENSE:1-3`, que contiene la licencia MIT con copyright de "650 Industries, Inc. (aka Expo)" y corresponde a la plantilla de Expo.
 
-<!-- TODO: confirmar la licencia aplicable al proyecto y su titular -->
+<!-- TODO: crear el archivo LICENSE del proyecto con licencia ISC y elegir el titular del copyright -->

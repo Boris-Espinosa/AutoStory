@@ -32,11 +32,23 @@ import { isVehiclePhotoKey, StorageService } from '../storage/storage.service';
 import { BRANDS } from '../utils/brands';
 import { vinParamSchema } from '../utils/vin';
 
-function withPublicPhotoUrl<T extends { photoUrl: string | null }>(
+export async function withPhotoUrl<T extends { photoUrl: string | null }>(
   vehicle: T,
   storage: StorageService,
-): T {
-  return { ...vehicle, photoUrl: storage.publicUrl(vehicle.photoUrl) };
+): Promise<T> {
+  if (vehicle.photoUrl === null) {
+    return vehicle;
+  }
+
+  try {
+    return { ...vehicle, photoUrl: await storage.signedUrl(vehicle.photoUrl) };
+  } catch (error) {
+    logError(
+      'No se pudo firmar la URL de la foto.',
+      error instanceof Error ? error.name : undefined,
+    );
+    return { ...vehicle, photoUrl: null };
+  }
 }
 
 async function removeOwnedPhoto(
@@ -69,7 +81,9 @@ export function listVehicles(
 ): AsyncRouteHandler {
   return async (req, res) => {
     const vehicles = await vehiclesService.listByUser(req.auth.userId);
-    res.json(vehicles.map((vehicle) => withPublicPhotoUrl(vehicle, storage)));
+    res.json(
+      await Promise.all(vehicles.map((vehicle) => withPhotoUrl(vehicle, storage))),
+    );
   };
 }
 
@@ -82,7 +96,7 @@ export function createVehicle(
       req.auth.userId,
       req.body as CreateVehicleInput,
     );
-    res.status(201).json(withPublicPhotoUrl(vehicle, storage));
+    res.status(201).json(await withPhotoUrl(vehicle, storage));
   };
 }
 
@@ -252,7 +266,7 @@ export function updateVehicle(
       req.params.vehicleId,
       req.body as UpdateVehicleInput,
     );
-    res.json(withPublicPhotoUrl(vehicle, storage));
+    res.json(await withPhotoUrl(vehicle, storage));
   };
 }
 
@@ -357,7 +371,7 @@ export function uploadVehiclePhoto(
         );
       }
 
-      res.json({ photoUrl: storage.publicUrl(photoKey) });
+      res.json(await withPhotoUrl({ photoUrl: photoKey }, storage));
     } finally {
       if (typeof source === 'string') {
         try {

@@ -3,9 +3,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env';
 
 export type ImageExtension = 'jpg' | 'png' | 'webp';
@@ -14,6 +16,10 @@ export const UPLOADS_DIR = env.uploadsDir;
 export const VEHICLE_UPLOADS_DIR = path.join(UPLOADS_DIR, 'vehicles');
 export const VEHICLE_PHOTO_URL_PREFIX = '/uploads/vehicles/';
 export const VEHICLE_PHOTO_KEY_PREFIX = 'vehicles/';
+export const SIGNING_WINDOW_SECONDS = 1800;
+export const MIN_SIGNED_URL_TTL_SECONDS = 3600;
+const SIGNED_URL_EXPIRES_IN =
+  MIN_SIGNED_URL_TTL_SECONDS + SIGNING_WINDOW_SECONDS;
 
 const VEHICLE_PHOTO_KEY =
   /^vehicles\/(?!\.{1,2}(?=\/|$))[^/\\]+\/(?!\.{1,2}(?=\/|$))[^/\\]+\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
@@ -45,7 +51,6 @@ export interface S3StorageConfig {
   bucket?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-  publicBaseUrl?: string;
 }
 
 export interface StorageConfig {
@@ -53,26 +58,22 @@ export interface StorageConfig {
   s3: S3StorageConfig;
 }
 
-type S3Sender = Pick<S3Client, 'send'>;
-
 /**
  * Guarda fotos en disco (desarrollo) o en un bucket S3 compatible (R2).
  * `save` recibe un Buffer (modo s3, Multer en memoria) o una ruta temporal
  * (modo disk, Multer en disco) y devuelve la key a guardar en la BD.
  */
 export class StorageService {
-  private readonly s3: S3Sender | null;
+  private readonly s3: S3Client | null;
   private readonly s3Config: Required<S3StorageConfig> | null;
-  private readonly publicBase: string;
 
   constructor(
     private readonly config: StorageConfig,
-    client?: S3Sender,
+    client?: S3Client,
   ) {
     if (config.driver === 'disk') {
       this.s3 = null;
       this.s3Config = null;
-      this.publicBase = '/uploads/';
       return;
     }
 
@@ -83,7 +84,6 @@ export class StorageService {
       bucket: s3.bucket,
       accessKeyId: s3.accessKeyId,
       secretAccessKey: s3.secretAccessKey,
-      publicBaseUrl: s3.publicBaseUrl,
     };
     const missing = Object.entries(required)
       .filter(([, value]) => !value)
@@ -96,7 +96,6 @@ export class StorageService {
     }
 
     this.s3Config = required as Required<S3StorageConfig>;
-    this.publicBase = `${this.s3Config.publicBaseUrl}/`;
     this.s3 =
       client ??
       new S3Client({
@@ -155,13 +154,37 @@ export class StorageService {
     return key;
   }
 
-  /** Devuelve la URL pública de una key válida; cualquier otro valor se descarta. */
+  /** Devuelve la URL local (disk) de una key válida; con s3 no hay URL pública. */
   publicUrl(photo: string | null): string | null {
+    if (this.s3 || !isVehiclePhotoKeyFormat(photo)) {
+      return null;
+    }
+
+    return `/uploads/${photo}`;
+  }
+
+  /** Devuelve una URL de lectura firmada (s3) o la URL local (disk). */
+  async signedUrl(photo: string | null): Promise<string | null> {
     if (!isVehiclePhotoKeyFormat(photo)) {
       return null;
     }
 
-    return `${this.publicBase}${photo}`;
+    if (!this.s3) {
+      return this.publicUrl(photo);
+    }
+
+    const ahoraSegundos = Math.floor(Date.now() / 1000);
+    const firmaSegundos =
+      Math.floor(ahoraSegundos / SIGNING_WINDOW_SECONDS) * SIGNING_WINDOW_SECONDS;
+
+    return getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: this.s3Config!.bucket, Key: photo }),
+      {
+        expiresIn: SIGNED_URL_EXPIRES_IN,
+        signingDate: new Date(firmaSegundos * 1000),
+      },
+    );
   }
 
   /** Borra solo keys válidas de este almacenamiento. */

@@ -44,7 +44,7 @@ R26. Retención: las notificaciones se conservan 90 días y los recordatorios pr
 R27. El centro de notificaciones es el canal base (web y móvil); los avisos del teléfono (locales o push) son opcionales y no lo sustituyen.
 R28. La identidad del usuario sale solo del token verificado; nunca del cuerpo, la query ni las cabeceras del cliente.
 R29. El usuario local se crea la primera vez que llega una petición autenticada (alta perezosa) y su perfil se refresca desde Clerk como máximo cada 24 horas.
-R30. Ninguna ruta del API es pública salvo GET /health; en desarrollo/test con `disk` también se sirve `/uploads` sin autenticación (en producción no existe y las fotos se entregan desde la URL pública de S3).
+R30. Ninguna ruta del API es pública salvo GET /health; en desarrollo/test con `disk` también se sirve `/uploads` sin autenticación (en producción no existe y las fotos se entregan desde URLs firmadas que caducan).
 R31. El modo de autenticación "dev-header" (cabecera x-user-id) solo existe fuera de producción y en los tests.
 R32. Si Clerk no responde al sincronizar el perfil, la petición continúa con el usuario mínimo y se reintenta después.
 

@@ -51,7 +51,6 @@ export interface S3StorageConfig {
   bucket?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-  publicBaseUrl?: string;
 }
 
 export interface StorageConfig {
@@ -67,7 +66,6 @@ export interface StorageConfig {
 export class StorageService {
   private readonly s3: S3Client | null;
   private readonly s3Config: Required<S3StorageConfig> | null;
-  private readonly publicBase: string;
 
   constructor(
     private readonly config: StorageConfig,
@@ -76,7 +74,6 @@ export class StorageService {
     if (config.driver === 'disk') {
       this.s3 = null;
       this.s3Config = null;
-      this.publicBase = '/uploads/';
       return;
     }
 
@@ -87,7 +84,6 @@ export class StorageService {
       bucket: s3.bucket,
       accessKeyId: s3.accessKeyId,
       secretAccessKey: s3.secretAccessKey,
-      publicBaseUrl: s3.publicBaseUrl,
     };
     const missing = Object.entries(required)
       .filter(([, value]) => !value)
@@ -100,7 +96,6 @@ export class StorageService {
     }
 
     this.s3Config = required as Required<S3StorageConfig>;
-    this.publicBase = `${this.s3Config.publicBaseUrl}/`;
     this.s3 =
       client ??
       new S3Client({
@@ -159,13 +154,13 @@ export class StorageService {
     return key;
   }
 
-  /** Devuelve la URL pública de una key válida; cualquier otro valor se descarta. */
+  /** Devuelve la URL local (disk) de una key válida; con s3 no hay URL pública. */
   publicUrl(photo: string | null): string | null {
-    if (!isVehiclePhotoKeyFormat(photo)) {
+    if (this.s3 || !isVehiclePhotoKeyFormat(photo)) {
       return null;
     }
 
-    return `${this.publicBase}${photo}`;
+    return `/uploads/${photo}`;
   }
 
   /** Devuelve una URL de lectura firmada (s3) o la URL local (disk). */

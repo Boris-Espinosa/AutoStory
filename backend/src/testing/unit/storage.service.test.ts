@@ -23,7 +23,6 @@ const S3_CONFIG: StorageConfig = {
     bucket: 'autostory-fotos',
     accessKeyId: 'clave',
     secretAccessKey: 'secreto',
-    publicBaseUrl: 'https://fotos.example.com',
   },
 };
 
@@ -81,7 +80,6 @@ describe('StorageService con driver s3', () => {
     const key = await storage.save(PNG, 'png', USER_ID, VEHICLE_ID);
 
     expect(key).toMatch(keyPattern('png'));
-    expect(storage.publicUrl(key)).toBe(`https://fotos.example.com/${key}`);
 
     const [command] = send.mock.calls[0] as [PutObjectCommand];
     expect(command).toBeInstanceOf(PutObjectCommand);
@@ -115,9 +113,9 @@ describe('StorageService con driver s3', () => {
     const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
 
-    expect(storage.publicUrl('foto-antigua')).toBeNull();
-    expect(storage.publicUrl('otra-foto-invalida')).toBeNull();
-    expect(storage.publicUrl(null)).toBeNull();
+    expect(await storage.signedUrl('foto-antigua')).toBeNull();
+    expect(await storage.signedUrl('otra-foto-invalida')).toBeNull();
+    expect(await storage.signedUrl(null)).toBeNull();
 
     await expect(storage.remove('foto-antigua')).rejects.toThrow(
       'Key de foto inválida.',
@@ -132,7 +130,7 @@ describe('StorageService con driver s3', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('nunca lanza y rechaza keys malformadas sin tocar el bucket', () => {
+  it('nunca lanza y rechaza keys malformadas sin tocar el bucket', async () => {
     const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
     const valid = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
@@ -146,15 +144,12 @@ describe('StorageService con driver s3', () => {
     expect(isVehiclePhotoKeyFormat(valid)).toBe(true);
 
     for (const key of ['vehicles/user-1', '', 'vehicles//x/y', `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png/extra`, long]) {
-      expect(() => storage.publicUrl(key)).not.toThrow();
-      expect(storage.publicUrl(key)).toBeNull();
+      await expect(storage.signedUrl(key)).resolves.toBeNull();
     }
-    expect(() => storage.publicUrl(valid)).not.toThrow();
-    expect(storage.publicUrl(valid)).toBe(`https://fotos.example.com/${valid}`);
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('firma una URL de lectura GET en el endpoint S3, no en la base pública', async () => {
+  it('firma una URL de lectura GET en el endpoint S3', async () => {
     const { client, send } = fakeClient();
     const storage = new StorageService(S3_CONFIG, client);
     const key = `vehicles/${USER_ID}/${VEHICLE_ID}/${randomUUID()}.png`;
@@ -164,7 +159,6 @@ describe('StorageService con driver s3', () => {
     expect(signed).not.toBeNull();
     const url = new URL(signed!);
     expect(url.host).toBe('cuenta.r2.cloudflarestorage.com');
-    expect(url.host).not.toBe('fotos.example.com');
     expect(url.pathname).toContain(`/${S3_CONFIG.s3.bucket}/${key}`);
     expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
     expect(url.searchParams.get('X-Amz-Expires')).toBe(

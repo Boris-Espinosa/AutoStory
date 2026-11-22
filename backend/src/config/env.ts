@@ -56,10 +56,6 @@ const envSchema = z
     S3_BUCKET: z.string().min(1).optional(),
     S3_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
-    S3_PUBLIC_BASE_URL: z
-      .string()
-      .url('S3_PUBLIC_BASE_URL debe ser una URL válida.')
-      .optional(),
   })
   .superRefine((value, context) => {
     const corsOrigins = splitOrigins(value.CORS_ORIGIN);
@@ -142,7 +138,6 @@ const envSchema = z
         'S3_BUCKET',
         'S3_ACCESS_KEY_ID',
         'S3_SECRET_ACCESS_KEY',
-        'S3_PUBLIC_BASE_URL',
       ] as const;
 
       for (const variable of required) {
@@ -220,7 +215,6 @@ export const env = {
       bucket: parsed.data.S3_BUCKET,
       accessKeyId: parsed.data.S3_ACCESS_KEY_ID,
       secretAccessKey: parsed.data.S3_SECRET_ACCESS_KEY,
-      publicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL?.replace(/\/+$/, ''),
     },
   },
 };

@@ -145,24 +145,24 @@ describe('configuración de entorno', () => {
     ).not.toThrow();
   });
 
-  it('en producción con STORAGE_DRIVER=s3 y su configuración arranca', () => {
-    expect(() =>
-      loadEnv({
-        NODE_ENV: 'production',
-        AUTH_MODE: 'clerk',
-        CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
-        CLERK_SECRET_KEY: 'sk_test_ejemplo',
-        DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
-        CORS_ORIGIN: 'https://app.test',
-        STORAGE_DRIVER: 's3',
-        S3_ENDPOINT: 'https://s3.test',
-        S3_REGION: 'auto',
-        S3_BUCKET: 'autostory-fotos',
-        S3_ACCESS_KEY_ID: 'access',
-        S3_SECRET_ACCESS_KEY: 'secret',
-        S3_PUBLIC_BASE_URL: 'https://fotos.test',
-      }),
-    ).not.toThrow();
+  it('en producción con s3 arranca y tolera S3_PUBLIC_BASE_URL sobrante', () => {
+    const { env } = loadEnv({
+      NODE_ENV: 'production',
+      AUTH_MODE: 'clerk',
+      CLERK_PUBLISHABLE_KEY: 'pk_test_ejemplo',
+      CLERK_SECRET_KEY: 'sk_test_ejemplo',
+      DATABASE_URL: 'postgres://user:pass@localhost:5432/autostory',
+      CORS_ORIGIN: 'https://app.test',
+      STORAGE_DRIVER: 's3',
+      S3_ENDPOINT: 'https://s3.test',
+      S3_REGION: 'auto',
+      S3_BUCKET: 'autostory-fotos',
+      S3_ACCESS_KEY_ID: 'access',
+      S3_SECRET_ACCESS_KEY: 'secret',
+      S3_PUBLIC_BASE_URL: 'https://fotos.test',
+    });
+
+    expect(env.storage.s3).not.toHaveProperty('publicBaseUrl');
   });
 
   it('en producción con STORAGE_DRIVER=s3 exige toda la configuración S3', () => {
@@ -180,7 +180,6 @@ describe('configuración de entorno', () => {
         S3_BUCKET: undefined,
         S3_ACCESS_KEY_ID: undefined,
         S3_SECRET_ACCESS_KEY: undefined,
-        S3_PUBLIC_BASE_URL: undefined,
       }),
     ).toThrow(/S3_BUCKET/);
   });

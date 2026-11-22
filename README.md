@@ -6,7 +6,7 @@ Demo del frontend: https://autostory-frontend.vercel.app
 
 ## Origen del proyecto
 
-El proyecto comenzó como un trabajo de la Universidad del Bío-Bío, Concepción, para la asignatura Modelamiento de Procesos e Información. Fue creado por Boris Espinosa.
+Comencé este proyecto como un trabajo de la Universidad del Bío-Bío, Concepción, para la asignatura Modelamiento de Procesos e Información.
 
 ## Demo y capturas
 
@@ -40,7 +40,7 @@ Las capturas están en `frontend/public/capturas/` (los nombres de archivo indic
 - Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guardias que comprueban la pertenencia o la propiedad antes de permitir la acción (`backend/src/entities/UserVehicle.ts:13-22`, `backend/src/services/vehicle-access.service.ts:22-40`, `backend/src/middlewares/vehicle-access.middleware.ts:5-20`).
 - Inicio de sesión con Google o Apple a través de Clerk (`frontend/src/features/auth/screens/SignInScreen.tsx:52,209-224`, `frontend/app.json:34-39`). En Expo Go, Apple no está disponible (`frontend/src/features/auth/screens/SignInScreen.tsx:119-120`).
 
-La entidad y la tabla de solicitudes de compartir vehículo existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`), pero no hay rutas en el backend ni pantallas en el frontend para crear o responder esas solicitudes. Por el momento se documenta solo como modelo de datos.
+La entidad y la tabla de solicitudes de compartir vehículo existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`), pero no hay rutas en el backend ni pantallas en el frontend para crear o responder esas solicitudes. Por ahora la mantengo solo como modelo de datos.
 
 ## Stack tecnológico
 
@@ -65,7 +65,7 @@ La entidad y la tabla de solicitudes de compartir vehículo existen (`backend/sr
 | Frontend | TypeScript `~6.0.3`, ESLint `^9.0.0` | Tipos y lint | `frontend/package.json:36,38` |
 | Servicio externo | API de decodificación VIN de NHTSA | Datos de marca, modelo y año desde el VIN | `backend/src/services/vin-decoder.service.ts:4-5` |
 
-No se declara una versión del servidor de PostgreSQL en el repositorio. La versión de Node proviene del campo `engines` del backend; no hay `.nvmrc`.
+El proyecto no fija una versión del servidor de PostgreSQL. La versión de Node proviene del campo `engines` del backend; no hay `.nvmrc`.
 
 ## Arquitectura
 
@@ -121,10 +121,10 @@ frontend/
 │   ├── utils/            # utilidades puras
 │   └── theme.ts          # tema de interfaz
 ├── assets/brand/         # iconos y logo
-└── (package.json, app.json, vercel.json, eas.json, .env.example, LICENSE)
+└── (package.json, app.json, vercel.json, eas.json, .env.example)
 ```
 
-Fuente de la estructura: `git ls-files`. `frontend/docs/` y `backend/docs/` no están versionados.
+La estructura corresponde a los archivos versionados (`git ls-files`). `frontend/docs/` y `backend/docs/` no forman parte de ellos.
 
 ## Requisitos previos
 
@@ -132,7 +132,7 @@ Fuente de la estructura: `git ls-files`. `frontend/docs/` y `backend/docs/` no e
 - PostgreSQL y una base de datos para la API (`backend/.env.example:7-8`, `backend/src/db/data-source.ts:53`).
 - Una instancia de Clerk para el modo de autenticación `clerk` (`backend/.env.example:26-34`).
 - Para fotos en producción, un bucket compatible con S3; el repositorio documenta Cloudflare R2 (`docs/despliegue.md:1-13`).
-- Para la app móvil, Expo; el proyecto define un perfil de build de desarrollo en EAS (`frontend/eas.json:5-13`). Los scripts `npm run android` y `npm run ios` se ejecutan con el entorno de Expo ya instalado (`frontend/package.json:42-43`). El repositorio no fija una versión mínima de npm ni instrucciones de Android Studio o Xcode, así que no se especifican aquí.
+- Para la app móvil, Expo; el proyecto define un perfil de build de desarrollo en EAS (`frontend/eas.json:5-13`). Los scripts `npm run android` y `npm run ios` se ejecutan con el entorno de Expo ya instalado (`frontend/package.json:42-43`). No hay una versión mínima de npm ni instrucciones de Android Studio o Xcode en el proyecto.
 
 ## Ejecución local
 
@@ -147,7 +147,7 @@ Los comandos se ejecutan desde PowerShell, en la carpeta correspondiente.
    npm install
    ```
 
-2. Copiar los archivos de ejemplo a `.env` y completarlos con valores propios; no se incluyen valores reales en este README (`backend/.env.example:1-52`, `frontend/.env.example:1-5`).
+2. Copiar los archivos de ejemplo a `.env` y completarlos con valores propios (`backend/.env.example:1-52`, `frontend/.env.example:1-5`).
 
    ```powershell
    cd ../backend
@@ -213,7 +213,7 @@ Los ejemplos son ficticios. Nunca pongas secretos en `EXPO_PUBLIC_*` ni en el re
 | `S3_ACCESS_KEY_ID` | Cliente S3 | Credencial de acceso | Sí con `STORAGE_DRIVER=s3` en producción | `backend/.env.example:47-52`, `backend/src/config/env.ts:57,134-152` |
 | `S3_SECRET_ACCESS_KEY` | Cliente S3 | Credencial secreta | Sí con `STORAGE_DRIVER=s3` en producción | `backend/.env.example:47-52`, `backend/src/config/env.ts:58,134-152` |
 
-Ejemplo ficticio de backend (valores inventados, no usar en producción):
+Ejemplo de configuración del backend (valores de prueba):
 
 ```dotenv
 DATABASE_URL=postgres://usuario_ficticio:clave_ficticia@localhost:5432/autostory
@@ -232,7 +232,7 @@ STORAGE_DRIVER=disk
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Provider de Clerk en el layout raíz | Clave pública de Clerk del frontend | Sí | `frontend/.env.example:4-5`, `frontend/app/_layout.tsx:51`, `frontend/scripts/check-env.mjs:4` |
 | `VERCEL` | Verificación del build | Se usa para detectar el build de Vercel y rechazar una API en `localhost` | No (la define el entorno de Vercel) | `frontend/scripts/check-env.mjs:22-25` |
 
-Ejemplo ficticio de frontend:
+Ejemplo de configuración del frontend:
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://localhost:3000
@@ -287,7 +287,7 @@ Frontend:
 
 - Frontend web: la configuración de Vercel define `buildCommand: node scripts/check-env.mjs && npx expo export -p web`, `outputDirectory: dist` y reenvía todas las rutas a `/` (`frontend/vercel.json:2-7`). La demo es: https://autostory-frontend.vercel.app
 - Móvil: `frontend/eas.json:5-13` define un perfil de build `development` con `developmentClient`, distribución `internal` y APK de Android. El esquema de la app es `autostory` (`frontend/app.json:8`).
-- Backend y fotos: la guía versionada `docs/despliegue.md` describe el bucket privado compatible con R2, las variables S3 y la comprobación de las URLs firmadas; también menciona Render como entorno donde configurar las variables de producción (`docs/despliegue.md:58-125`).
+- Backend y fotos: la guía `docs/despliegue.md` describe el bucket privado compatible con R2, las variables S3 y la comprobación de las URLs firmadas; también menciona Render como entorno donde configurar las variables de producción (`docs/despliegue.md:58-125`).
 
 API desplegada: https://autostory-ym5q.onrender.com
 
@@ -303,13 +303,11 @@ API desplegada: https://autostory-ym5q.onrender.com
 
 ## Limitaciones conocidas
 
-- No se encontraron rutas ni pantallas para crear o responder solicitudes de compartir vehículo, aunque la entidad y la tabla existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`).
+- No hay rutas ni pantallas para crear o responder solicitudes de compartir vehículo, aunque la entidad y la tabla existen (`backend/src/entities/SharingRequest.ts:19-49`, `backend/src/migrations/1767225600000-InitialSchema.ts:79-106`).
 - Apple no está disponible en Expo Go; requiere un development build y configuración de Apple en Clerk (`frontend/src/features/auth/screens/SignInScreen.tsx:119-120`, `docs/clerk-expo-go.md:119-122`).
 - En web y en Expo Go no se usan los avisos locales; los recordatorios dependen del trabajador del backend y de las notificaciones de la app (`frontend/src/notifications/setup.ts:14-15`, `backend/src/jobs/reminder-worker.ts:263-305`).
 - Con `NODE_ENV=production`, `STORAGE_DRIVER` debe ser `s3` y las fotos relativas antiguas (`/uploads/...`) ya no se sirven (`backend/src/config/env.ts:125-132`, `docs/despliegue.md:121-123`).
 - `docs/despliegue.md:127-165` describe tres puntos a revisar antes de usar más de una instancia de la API: migraciones en el arranque, limitador de VIN en memoria y contador de fallos del trabajador en memoria.
-
-<!-- TODO: añadir aquí otras limitaciones que conozcas y no estén en el código o en docs versionados -->
 
 ## Documentación adicional
 
@@ -329,10 +327,6 @@ Clonado del repositorio:
 git clone https://github.com/Boris-Espinosa/AutoStory.git
 ```
 
-Fuente del comando: `git remote -v`.
+Autor: Boris Espinosa.
 
-Autor: Boris Espinosa (creador del proyecto).
-
-Licencia: ISC, según lo declarado por el autor. El repositorio todavía no incluye un archivo `LICENSE` del proyecto; el único archivo versionado es `frontend/LICENSE:1-3`, que contiene la licencia MIT con copyright de "650 Industries, Inc. (aka Expo)" y corresponde a la plantilla de Expo.
-
-<!-- TODO: crear el archivo LICENSE del proyecto con licencia ISC y elegir el titular del copyright -->
+Licencia: ISC. El texto completo está en [LICENSE](./LICENSE).

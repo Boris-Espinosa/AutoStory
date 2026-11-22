@@ -66,6 +66,7 @@ import {
   VIN_CHECK_DIGIT_MESSAGE,
   validateVin,
 } from '../../../utils/vin';
+import { usePhotoUrlRefresh } from '../usePhotoUrlRefresh';
 
 const MIN_YEAR = 1950;
 const MAX_YEAR = new Date().getFullYear() + 1;
@@ -165,6 +166,7 @@ const DEFAULT_VALUES: FormValues = {
 
 export default function NewVehicleScreen() {
   const queryClient = useQueryClient();
+  const onPhotoError = usePhotoUrlRefresh();
   const params = useLocalSearchParams<{ vehicleId?: string | string[] }>();
   const editingId = Array.isArray(params.vehicleId)
     ? params.vehicleId[0]
@@ -848,6 +850,7 @@ export default function NewVehicleScreen() {
                   style={styles.photoFrame}
                 >
                   <Image
+                    onError={() => onPhotoError(previewUri)}
                     resizeMode="cover"
                     source={{ uri: previewUri }}
                     style={styles.photoImage}

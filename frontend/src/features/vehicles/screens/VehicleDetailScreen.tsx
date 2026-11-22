@@ -63,6 +63,7 @@ import {
   photoUploadErrorMessage,
   preparePickedPhoto,
 } from '../../../utils/photo';
+import { usePhotoUrlRefresh } from '../usePhotoUrlRefresh';
 
 const DELETE_WARNING =
   'Se eliminará el vehículo y todo su historial. Esta acción no se puede deshacer.';
@@ -322,6 +323,7 @@ export default function VehicleDetailScreen() {
       : 'summary';
 
   const queryClient = useQueryClient();
+  const onPhotoError = usePhotoUrlRefresh();
   const vehiclesQuery = useVehicles();
   const vehicle =
     vehiclesQuery.data?.find((item) => item.id === vehicleId) ?? null;
@@ -331,7 +333,7 @@ export default function VehicleDetailScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  const [photoFailed, setPhotoFailed] = useState(false);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
@@ -391,6 +393,7 @@ export default function VehicleDetailScreen() {
   };
 
   const photoUri = vehicle?.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
+  const photoFailed = photoUri !== null && failedPhotoUrl === photoUri;
 
   const retryPhoto = async () => {
     if (!vehicle) {
@@ -426,7 +429,7 @@ export default function VehicleDetailScreen() {
         vehicle.id,
         await preparePickedPhoto(asset),
       );
-      setPhotoFailed(false);
+      setFailedPhotoUrl(null);
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
       setFlash('Foto actualizada');
     } catch (error) {
@@ -505,7 +508,10 @@ export default function VehicleDetailScreen() {
           <View style={[styles.hero, isWide && styles.heroWide]}>
             {photoUri && !photoFailed ? (
               <Image
-                onError={() => setPhotoFailed(true)}
+                onError={() => {
+                  setFailedPhotoUrl(photoUri);
+                  onPhotoError(photoUri);
+                }}
                 resizeMode="cover"
                 source={{ uri: photoUri }}
                 style={[styles.heroPhoto, isWide && styles.heroPhotoWide]}

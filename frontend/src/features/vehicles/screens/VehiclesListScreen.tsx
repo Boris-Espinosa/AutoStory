@@ -32,13 +32,16 @@ import {
   typography,
 } from '../../../theme';
 import { formatChileanAmount } from '../../../utils/format';
+import { usePhotoUrlRefresh } from '../usePhotoUrlRefresh';
 
 const FLASH_DURATION_MS = 5000;
 const PHOTO_SIZE = layout.photoSize;
 
 function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
-  const [photoFailed, setPhotoFailed] = useState(false);
+  const onPhotoError = usePhotoUrlRefresh();
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
   const photoUri = vehicle.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
+  const photoFailed = photoUri !== null && failedPhotoUrl === photoUri;
 
   return (
     <Card
@@ -54,7 +57,10 @@ function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
       <View style={styles.cardRow}>
         {photoUri && !photoFailed ? (
           <Image
-            onError={() => setPhotoFailed(true)}
+            onError={() => {
+              setFailedPhotoUrl(photoUri);
+              onPhotoError(photoUri);
+            }}
             source={{ uri: photoUri }}
             style={styles.photo}
           />

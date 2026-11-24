@@ -25,7 +25,10 @@ import {
 } from '../controllers/vehicles.controller';
 import {
   cancelSharingRequest,
+  leaveVehicle,
+  listMembers,
   listSharingRequests,
+  revokeMember,
   sendSharingRequest,
 } from '../controllers/sharing-requests.controller';
 import {
@@ -220,6 +223,25 @@ export function createVehiclesRouter(
     '/:vehicleId/sharing-requests/:requestId/cancel',
     owner,
     asyncHandler(cancelSharingRequest(sharingRequestsService)),
+  );
+
+  router.get(
+    '/:vehicleId/members',
+    owner,
+    asyncHandler(listMembers(sharingRequestsService)),
+  );
+
+  // "me" va antes de ":userId": si no, Express lo tomaría como id.
+  router.delete(
+    '/:vehicleId/members/me',
+    member,
+    asyncHandler(leaveVehicle(sharingRequestsService)),
+  );
+
+  router.delete(
+    '/:vehicleId/members/:userId',
+    owner,
+    asyncHandler(revokeMember(sharingRequestsService)),
   );
 
   return router;

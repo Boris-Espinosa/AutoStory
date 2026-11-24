@@ -16,3 +16,8 @@ export type SendSharingRequestInput = z.infer<typeof sendSharingRequestSchema>;
 export const uuidParamSchema = z
   .string()
   .uuid('El ID de la solicitud no es válido.');
+
+export const userIdParamSchema = z
+  .string()
+  .min(1, 'El ID del usuario no es válido.')
+  .max(64, 'El ID del usuario no es válido.');

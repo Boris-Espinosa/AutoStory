@@ -2,6 +2,7 @@ import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { DataSource, Repository } from 'typeorm';
 import { createApp } from '../../app';
+import { Maintenance } from '../../entities/Maintenance';
 import { Notification, NotificationType } from '../../entities/Notification';
 import {
   SharingRequest,
@@ -21,6 +22,7 @@ let vehicles: Repository<Vehicle>;
 let userVehicles: Repository<UserVehicle>;
 let sharingRequests: Repository<SharingRequest>;
 let notifications: Repository<Notification>;
+let maintenances: Repository<Maintenance>;
 
 beforeAll(async () => {
   dataSource = createTestDataSource();
@@ -31,6 +33,7 @@ beforeAll(async () => {
   userVehicles = dataSource.getRepository(UserVehicle);
   sharingRequests = dataSource.getRepository(SharingRequest);
   notifications = dataSource.getRepository(Notification);
+  maintenances = dataSource.getRepository(Maintenance);
 
   server = createServer(createApp(dataSource));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -85,6 +88,16 @@ async function seedVehicleWithOwner(ownerId = 'user-1'): Promise<Vehicle> {
     }),
   );
   return vehicle;
+}
+
+async function seedGuest(vehicleId: string, userId = 'user-2'): Promise<void> {
+  await userVehicles.save(
+    userVehicles.create({
+      userId,
+      vehicleId,
+      role: UserVehicleRole.GUEST,
+    }),
+  );
 }
 
 interface ApiResponse {
@@ -490,5 +503,125 @@ describe('API del receptor para responder solicitudes', () => {
     });
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe('API de miembros del vehículo', () => {
+  it('lista solo invitados con email y fecha de asignación', async () => {
+    const vehicle = await seedVehicleWithOwner();
+    await seedGuest(vehicle.id);
+
+    const response = await api('GET', `/vehicles/${vehicle.id}/members`, {
+      userId: 'user-1',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0]).toMatchObject({
+      userId: 'user-2',
+      email: 'bruno@example.com',
+      role: 'GUEST',
+      assignedAt: expect.any(String),
+    });
+  });
+
+  it('revoca al invitado y conserva su mantención en el historial', async () => {
+    const vehicle = await seedVehicleWithOwner();
+    await seedGuest(vehicle.id);
+    await maintenances.save({
+      vehicleId: vehicle.id,
+      serviceDate: '2026-01-10',
+      serviceMileage: 1100,
+      description: 'Cambio de aceite',
+      diagnosis: null,
+      laborCost: 0,
+      workshopId: null,
+      registeredByUserId: 'user-2',
+      appointmentId: null,
+    });
+
+    const revoke = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/user-2`,
+      { userId: 'user-1' },
+    );
+    expect(revoke.status).toBe(204);
+
+    const formerGuestVehicles = await api('GET', '/vehicles', {
+      userId: 'user-2',
+    });
+    expect(formerGuestVehicles.body).toEqual([]);
+
+    const history = await api(
+      'GET',
+      `/vehicles/${vehicle.id}/maintenances`,
+      { userId: 'user-1' },
+    );
+    expect(history.status).toBe(200);
+    expect(history.body.items).toHaveLength(1);
+    expect(history.body.items[0]).toMatchObject({
+      description: 'Cambio de aceite',
+      registeredBy: { id: 'user-2', name: 'Bruno' },
+    });
+  });
+
+  it('el invitado abandona el vehículo con 204', async () => {
+    const vehicle = await seedVehicleWithOwner();
+    await seedGuest(vehicle.id);
+
+    const leave = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/me`,
+      { userId: 'user-2' },
+    );
+
+    expect(leave.status).toBe(204);
+    await expect(userVehicles.countBy({ userId: 'user-2' })).resolves.toBe(0);
+  });
+
+  it('el dueño no puede abandonar ni ser revocado', async () => {
+    const vehicle = await seedVehicleWithOwner();
+
+    const leave = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/me`,
+      { userId: 'user-1' },
+    );
+    const revoke = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/user-1`,
+      { userId: 'user-1' },
+    );
+
+    expect(leave.status).toBe(409);
+    expect(revoke.status).toBe(409);
+    await expect(
+      userVehicles.countBy({ vehicleId: vehicle.id }),
+    ).resolves.toBe(1);
+  });
+
+  it('un invitado no puede revocar y un miembro inexistente responde 404', async () => {
+    const vehicle = await seedVehicleWithOwner();
+    await seedGuest(vehicle.id);
+
+    const forbidden = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/user-2`,
+      { userId: 'user-2' },
+    );
+    const missing = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/user-3`,
+      { userId: 'user-1' },
+    );
+    const invalid = await api(
+      'DELETE',
+      `/vehicles/${vehicle.id}/members/${'x'.repeat(65)}`,
+      { userId: 'user-1' },
+    );
+
+    expect(forbidden.status).toBe(403);
+    expect(missing.status).toBe(404);
+    expect(invalid.status).toBe(400);
   });
 });

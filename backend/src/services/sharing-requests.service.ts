@@ -6,7 +6,7 @@ import {
   SharingRequestStatus,
 } from '../entities/SharingRequest';
 import { User } from '../entities/User';
-import { UserVehicle } from '../entities/UserVehicle';
+import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { createNotifications } from '../jobs/notify';
 import {
   sharingDisplayName,
@@ -50,6 +50,13 @@ export interface RespondedSharingRequestView {
   status: SharingRequestStatus.ACCEPTED | SharingRequestStatus.REJECTED;
 }
 
+export interface MemberView {
+  userId: string;
+  email: string;
+  role: UserVehicleRole.GUEST;
+  assignedAt: string;
+}
+
 interface EmailMatch {
   id: string;
 }
@@ -77,6 +84,12 @@ interface RespondRow {
   id: string;
   sender_user_id: string;
   vehicle_id: string;
+}
+
+interface MemberRow {
+  user_id: string;
+  email: string | null;
+  assigned_at: Date | string;
 }
 
 const MAX_PENDING = 10;
@@ -343,5 +356,50 @@ export class SharingRequestsService {
         return { id: request.id, status };
       },
     );
+  }
+
+  async listMembers(vehicleId: string): Promise<MemberView[]> {
+    const rows: MemberRow[] = await this.repositories.userVehicles.query(
+      `SELECT uv.user_id, u.email, uv.assigned_at
+         FROM "user_vehicles" uv
+         JOIN "users" u ON u.id = uv.user_id
+        WHERE uv.vehicle_id = $1 AND uv.role = 'GUEST'
+        ORDER BY uv.assigned_at DESC, uv.user_id ASC`,
+      [vehicleId],
+    );
+
+    return rows.map((row) => ({
+      userId: row.user_id,
+      email: row.email ?? '',
+      role: UserVehicleRole.GUEST,
+      assignedAt: new Date(row.assigned_at).toISOString(),
+    }));
+  }
+
+  async revoke(vehicleId: string, userId: string): Promise<void> {
+    const rows: Array<{ role: UserVehicleRole }> =
+      await this.repositories.userVehicles.query(
+        `SELECT role
+           FROM "user_vehicles"
+          WHERE user_id = $1 AND vehicle_id = $2`,
+        [userId, vehicleId],
+      );
+
+    if (rows.length === 0) {
+      throw new HttpError(404, 'Miembro no encontrado.');
+    }
+    if (rows[0].role === UserVehicleRole.OWNER) {
+      throw new HttpError(409, 'El dueño no puede salir ni ser revocado.');
+    }
+
+    await this.repositories.userVehicles.query(
+      `DELETE FROM "user_vehicles"
+        WHERE user_id = $1 AND vehicle_id = $2 AND role = 'GUEST'`,
+      [userId, vehicleId],
+    );
+  }
+
+  async leave(vehicleId: string, userId: string): Promise<void> {
+    await this.revoke(vehicleId, userId);
   }
 }

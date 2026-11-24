@@ -5,7 +5,7 @@ import {
   SharingRequestStatus,
 } from '../../entities/SharingRequest';
 import { User } from '../../entities/User';
-import { UserVehicle } from '../../entities/UserVehicle';
+import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
 import { createNotifications } from '../../jobs/notify';
 import { SharingRequestsService } from '../../services/sharing-requests.service';
 import {
@@ -45,6 +45,7 @@ function buildService() {
     manager: { transaction: jest.fn() },
     query: jest.fn(),
   };
+  const userVehicles = { query: jest.fn() };
 
   sharingRequests.manager.transaction.mockImplementation(
     async (callback: (tx: EntityManager) => Promise<unknown>) =>
@@ -61,10 +62,10 @@ function buildService() {
   const service = new SharingRequestsService({
     sharingRequests: sharingRequests as unknown as Repository<SharingRequest>,
     users: {} as Repository<User>,
-    userVehicles: {} as Repository<UserVehicle>,
+    userVehicles: userVehicles as unknown as Repository<UserVehicle>,
   });
 
-  return { service, manager, sharingRequests };
+  return { service, manager, sharingRequests, userVehicles };
 }
 
 function mockReceiverLookup(manager: MockManager, matches = [{ id: RECEIVER_ID }]) {
@@ -434,6 +435,105 @@ describe('SharingRequestsService.accept y reject', () => {
     ).rejects.toThrow('fallo simulado en la membresía');
     expect(state.status).toBe(SharingRequestStatus.PENDING);
     expect(createNotifications).not.toHaveBeenCalled();
+  });
+});
+
+describe('SharingRequestsService.listMembers', () => {
+  it('devuelve solo GUEST con email y fecha de asignación', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query.mockResolvedValue([
+      {
+        user_id: RECEIVER_ID,
+        email: 'bruno@example.com',
+        assigned_at: SENT_AT,
+      },
+    ]);
+
+    await expect(service.listMembers(VEHICLE_ID)).resolves.toEqual([
+      {
+        userId: RECEIVER_ID,
+        email: 'bruno@example.com',
+        role: UserVehicleRole.GUEST,
+        assignedAt: SENT_AT.toISOString(),
+      },
+    ]);
+    expect(userVehicles.query).toHaveBeenCalledWith(
+      expect.stringContaining("uv.role = 'GUEST'"),
+      [VEHICLE_ID],
+    );
+  });
+
+  it('usa cadena vacía si el invitado no tiene email', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query.mockResolvedValue([
+      { user_id: RECEIVER_ID, email: null, assigned_at: SENT_AT },
+    ]);
+
+    await expect(service.listMembers(VEHICLE_ID)).resolves.toMatchObject([
+      { email: '' },
+    ]);
+  });
+});
+
+describe('SharingRequestsService.revoke y leave', () => {
+  it('borra la fila GUEST al revocar', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query
+      .mockResolvedValueOnce([{ role: UserVehicleRole.GUEST }])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      service.revoke(VEHICLE_ID, RECEIVER_ID),
+    ).resolves.toBeUndefined();
+
+    expect(userVehicles.query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('SELECT role'),
+      [RECEIVER_ID, VEHICLE_ID],
+    );
+    expect(userVehicles.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('DELETE FROM "user_vehicles"'),
+      [RECEIVER_ID, VEHICLE_ID],
+    );
+  });
+
+  it('borra la membresía del propio usuario al abandonar', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query
+      .mockResolvedValueOnce([{ role: UserVehicleRole.GUEST }])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      service.leave(VEHICLE_ID, RECEIVER_ID),
+    ).resolves.toBeUndefined();
+
+    expect(userVehicles.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('role = \'GUEST\''),
+      [RECEIVER_ID, VEHICLE_ID],
+    );
+  });
+
+  it('responde 409 si el objetivo es el dueño', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query.mockResolvedValue([{ role: UserVehicleRole.OWNER }]);
+
+    await expect(
+      service.revoke(VEHICLE_ID, SENDER_ID),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      service.leave(VEHICLE_ID, SENDER_ID),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(userVehicles.query).toHaveBeenCalledTimes(2);
+  });
+
+  it('responde 404 si la membresía no existe', async () => {
+    const { service, userVehicles } = buildService();
+    userVehicles.query.mockResolvedValue([]);
+
+    await expect(
+      service.revoke(VEHICLE_ID, RECEIVER_ID),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 

@@ -323,8 +323,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | ---- | ------ | -------------- |
 | 1 | hecho | 2ff740a |
 | 2 | hecho | 5133fd7 |
-| 3 | hecho | — |
-| 4 | pendiente | — |
+| 3 | hecho | cc06ee3 |
+| 4 | hecho | — |
 | 5 | pendiente | — |
 | 6 | pendiente | — |
 | 7 | pendiente | — |
@@ -336,7 +336,9 @@ Paso 1: no hay paso 0, así que no hay SHA anterior que anotar. El último commi
 
 Paso 2: el SHA se anotará al iniciar el paso 3, según la misma regla.
 
-Paso 3: el SHA se anotará al iniciar el paso 4, según la misma regla.
+Paso 3: el SHA se anotó al iniciar el paso 4 (`cc06ee3`).
+
+Paso 4: el SHA se anotará al iniciar el paso 5, según la misma regla.
 
 ## 9. Cómo retomar en una sesión nueva
 

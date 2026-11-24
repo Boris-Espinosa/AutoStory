@@ -10,7 +10,7 @@ Fuentes de verdad usadas: `docs/caso-de-uso-compartir-vehiculo.md`, `docs/caso-d
 
 **Restricciones**
 
-- Un objetivo por commit; mensajes `feat(paso N): <descripción corta>` salvo el paso 8, que es `docs(paso 8): ...`. Los commits y el push los hace el usuario tras revisar el diff; el plan solo propone mensajes.
+- Un objetivo por commit; mensajes `feat(paso N): <descripción corta>` salvo el paso 8, que es `docs(paso 8): ...`. El agente NO commitea ni hace push; el usuario revisa el diff y commitea. El plan solo propone mensajes.
 - Sin dependencias nuevas, sin cambiar versiones, sin tocar `.env` ni `.env.example` (no hay variables nuevas).
 - Sin ejecutar migraciones contra Neon. El usuario aplica las migraciones cuando decida; este plan solo las escribe.
 - `npm run test:integration` solo contra `TEST_DATABASE_URL` (distinta de `DATABASE_URL`, con "test" en el nombre). Nunca contra la BD de Neon.
@@ -102,7 +102,7 @@ frontend/
 | No tocar `normalizeEmail` de `user-sync.service.ts` | Hoy solo hace `trim`; cambiarlo reescribiría emails existentes y está fuera del alcance. |
 | 0 o >1 coincidencias de email → respuesta 202 neutral | No se crea nada y no se revela qué correos están registrados (R33). |
 | Duplicado PENDING → índice parcial y `23505` mapeado a 409 | La restricción la garantiza la BD aunque haya dos peticiones concurrentes. |
-| Tope de 10 PENDING por vehículo con `pg_advisory_xact_lock(hashtext($1))` | Mismo patrón ya usado en `vehicles.service.ts`; evita que dos envíos concurrentes rebasen el límite. |
+| Tope de 10 PENDING por vehículo con `pg_advisory_xact_lock(hashtext($1))` y `$1 = 'sharing:' + vehicleId` | Mismo patrón ya usado en `vehicles.service.ts`; el prefijo evita colisiones con otros locks del proceso y evita que dos envíos concurrentes rebasen el límite. |
 | Rate limit de 10 envíos/minuto por usuario en memoria | `express-rate-limit` 8.7.3 ya está instalado; usar `limit` (no `max`) y `keyGenerator: (req) => req.auth.userId`, igual que el limiter de VIN. |
 | Aceptar con `UPDATE ... WHERE id=$1 AND receiver_user_id=$2 AND status='PENDING'` y comprobar `affected === 1` | Es atómico y evita el viaje extra y el bloqueo de `SELECT ... FOR UPDATE`; la propia fila queda bloqueada hasta el commit. |
 | `INSERT ... ON CONFLICT (user_id, vehicle_id) DO NOTHING` para la membresía | La aceptación es idempotente ante reintentos y no falla si ya existe la fila. |
@@ -181,6 +181,8 @@ Debe dar 12 suites. Si `TEST_DATABASE_URL` no está definida, es igual a `DATABA
 
 **Regla de migración (paso 1):** no ejecutar `npm run migration:*` contra Neon. `1767225606000-SharingEnums.ts` declara `transaction = false` y contiene **solo** los `ALTER TYPE`; `1767225607000-SharingSupport.ts` es transaccional y contiene columna, FK e índice. El orden de registro en `MIGRATIONS` es enums → soporte; el `down` se ejecuta en orden inverso (primero soporte, luego enums).
 
+**Alternativa documentada, no aplicar sin decidir:** si PostgreSQL es 12 o superior en Neon y en la BD de tests, evaluar una sola migración transaccional y NO cambiar `migrationsTransactionMode`; decidir tras el `SELECT version()`. El diseño de dos migraciones descrito arriba se mantiene por defecto porque funciona en cualquier versión.
+
 ## 4. Tabla de cambios por archivo
 
 | Archivo | Paso | Cambio concreto |
@@ -204,10 +206,10 @@ Debe dar 12 suites. Si `TEST_DATABASE_URL` no está definida, es igual a `DATABA
 | `backend/src/testing/unit/sharing-requests.service.test.ts` | 2–4 | Nuevo; casos de normalización de email, `affected !== 1` → 409 y textos con límites |
 | `frontend/src/api/notifications.ts` | 5 | 3 valores en `NotificationType`, `sharingRequestId` en `Notification` |
 | `frontend/src/api/sharing.ts` | 5 | Nuevo: tipos, `sharingQueryKeys`, hooks de solicitudes/miembros y mutaciones con invalidación |
-| `frontend/src/features/notifications/screens/NotificationsScreen.tsx` | 5 y 7 | Añadir 3 entradas a `TYPE_ICONS`; abrir modal si `sharingRequestId`, sin caer en "Esta cita ya no existe" |
+| `frontend/src/features/notifications/screens/NotificationsScreen.tsx` | 5 y 7 | Paso 5: 3 entradas en `TYPE_ICONS` y respaldo `notifications-outline` para tipos desconocidos; paso 7: abrir el modal solo si el tipo es `SHARING_REQUEST_RECEIVED` (y hay `sharingRequestId`); `ACCEPTED`/`REJECTED` solo se marcan leídas |
 | `frontend/src/components/ShareVehicleModal.tsx` | 6 | Nuevo; campo email, pendientes e invitados, confirmación de revocar con `ConfirmModal` |
 | `frontend/src/features/vehicles/screens/VehicleDetailScreen.tsx` | 6 | Opción "Compartir vehículo" en el ⋮ de OWNER y "Abandonar vehículo" en el de GUEST, con `ConfirmModal` |
-| `frontend/src/features/notifications/components/SharingRequestModal.tsx` | 7 | Nuevo; detalle limitado, botones Aceptar/Rechazar |
+| `frontend/src/features/notifications/components/SharingRequestModal.tsx` | 7 | Nuevo; detalle limitado, botones Aceptar/Rechazar; si la solicitud ya no está PENDING, muestra "Ya respondiste esta solicitud" |
 | `README.md` | 8 | Línea 22: GUEST ya asignable desde la app; línea 297: funcionalidad implementada |
 
 Sin cambios: `normalizeEmail`, `app.ts` salvo el nuevo `app.use`, migraciones existentes, esquema de otras tablas, dependencias y `frontend/app/**`.
@@ -220,6 +222,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 
 - Archivos: `entities/SharingRequest.ts`, `entities/Notification.ts`, las 2 migraciones nuevas, `db/data-source.ts`, `testing/test-data-source.ts` y `testing/integration/sharing.integration.test.ts`.
 - Cambios: las dos migraciones descritas en la sección 3; `MIGRATIONS` y `migrationsTransactionMode: 'each'` en ambos data sources.
+- Nota: si PostgreSQL es 12 o superior en Neon y en la BD de tests, evaluar una sola migración transaccional y NO cambiar `migrationsTransactionMode`; decidir tras el `SELECT version()`. El diseño de dos migraciones sigue siendo la alternativa documentada por defecto.
 - Impacto en datos existentes (pedido por `backend/AGENTS.md`): ninguna fila se borra ni se reescribe. Se añaden valores de enum, una columna nullable, una FK y un índice único parcial. Las solicitudes PENDING actuales (si las hay) pasan a estar protegidas por el índice; no se crean notificaciones nuevas. El `down` reconvierte `CANCELLED → REJECTED` y los 3 tipos nuevos a valores antiguos: **pérdida semántica irreversible**, documentada en la migración.
 - `down` de enums: renombrar el tipo, crear el tipo antiguo, `ALTER COLUMN ... USING CASE ... END::<tipo>`, ajustar default y borrar el tipo viejo. PostgreSQL no tiene `ALTER TYPE ... REMOVE VALUE`.
 - Verificación: V backend + `npx jest --config jest.integration.config.js --listTests` (12 suites) + `npm run test:integration` solo contra la BD de tests (lo ejecuta el usuario). Comprobar que la migración de enums se aplica fuera de transacción y que la de soporte se registra después. **No ejecutar migraciones en Neon.**
@@ -228,9 +231,9 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 ### Paso 2 — DUEÑO: enviar, listar y cancelar
 
 - Archivos: `schemas/sharing-request.schema.ts`, `services/sharing-requests.service.ts`, `controllers/sharing-requests.controller.ts`, `routes/vehicles.routes.ts`, `services/notifications.service.ts`, `jobs/notify.ts`, `utils/messages.ts`, tests unitario e integración.
-- Lógica: búsqueda `LOWER(TRIM(email))` con `email IS NOT NULL`; 0 o >1 → 202 sin insertar. Uno mismo, ya miembro, PENDING previa (`23505`) y tope de 10 → 409; 10 envíos/minuto → 429. `pg_advisory_xact_lock(hashtext($1))` alrededor del conteo de pendientes e inserción. Notificación `SHARING_REQUEST_RECEIVED` al receptor en la misma transacción, con `sharingRequestId` apuntando a la solicitud: es su único punto de entrada (R39), así que el cambio M va en este paso. Listar devuelve el email actual del receptor vía join, nunca datos de vehículo. Cancelar con `UPDATE ... WHERE status='PENDING'` y `affected === 1`; 409 si no.
+- Lógica: búsqueda `LOWER(TRIM(email))` con `email IS NOT NULL`; 0 o >1 → 202 sin insertar. Uno mismo, ya miembro, PENDING previa (`23505`) y tope de 10 → 409; 10 envíos/minuto → 429. `pg_advisory_xact_lock(hashtext($1))` con `$1 = 'sharing:' + vehicleId` alrededor del conteo de pendientes e inserción. Notificación `SHARING_REQUEST_RECEIVED` al receptor en la misma transacción, con `sharingRequestId` apuntando a la solicitud: es su único punto de entrada (R39), así que el cambio M va en este paso. Listar devuelve el email actual del receptor vía join, nunca datos de vehículo. Cancelar con `UPDATE ... WHERE status='PENDING'` y `affected === 1`; 409 si no.
 - Seguridad: nadie puede enviar por otro usuario; el dueño se resuelve desde `req.auth.userId`.
-- Verificación: V backend + tests nuevos (202 neutral para correo inexistente, 409 en duplicado, 429 en el undécimo envío, 404 en solicitud de otro vehículo, y que `GET /notifications` devuelve `sharingRequestId` distinto de null en la notificación creada). Integración la ejecuta el usuario contra la BD de tests.
+- Verificación: V backend + tests nuevos (202 neutral para correo inexistente, 409 en duplicado, 429 en el undécimo envío (usuario exclusivo para ese test), 404 en solicitud de otro vehículo, y que `GET /notifications` devuelve `sharingRequestId` distinto de null en la notificación creada). Integración la ejecuta el usuario contra la BD de tests.
 - Commit: `feat(paso 2): enviar, listar y cancelar solicitudes de compartir`
 
 ### Paso 3 — receptor: detalle, aceptar y rechazar
@@ -252,8 +255,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 
 ### Paso 5 — frontend: datos y tipos
 
-- Archivos: `frontend/src/api/notifications.ts`, `frontend/src/api/sharing.ts`.
-- Cambios: 3 tipos nuevos en `NotificationType`, `sharingRequestId: string | null`, tipos de solicitud/miembro, query keys propias y hooks de lista/mutaciones. Tras aceptar, rechazar, abandonar y revocar: invalidar `vehiclesQueryKey`, `notificationsQueryKey` y las query keys locales de compartir. Sin lógica en pantallas todavía.
+- Archivos: `frontend/src/api/notifications.ts`, `frontend/src/api/sharing.ts`, `frontend/src/features/notifications/screens/NotificationsScreen.tsx`.
+- Cambios: 3 tipos nuevos en `NotificationType`, `sharingRequestId: string | null`, tipos de solicitud/miembro, query keys propias y hooks de lista/mutaciones. En `NotificationsScreen.tsx`, ampliar `TYPE_ICONS` con las 3 entradas nuevas y usar respaldo `notifications-outline` para tipos desconocidos de builds móviles antiguos (`TYPE_ICONS[notification.type] ?? 'notifications-outline'`), para que `tsc` pase sin dejar iconos vacíos. Tras aceptar, rechazar, abandonar y revocar: invalidar `vehiclesQueryKey`, `notificationsQueryKey` y las query keys locales de compartir. Sin lógica de modales en pantallas todavía.
 - Verificación: V frontend (tsc, lint con 5 errores/8 warnings, `expo export`).
 - Commit: `feat(paso 5): tipos y hooks de compartir en el frontend`
 
@@ -267,8 +270,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 ### Paso 7 — modal de notificación del receptor
 
 - Archivos: `frontend/src/features/notifications/components/SharingRequestModal.tsx`, `frontend/src/features/notifications/screens/NotificationsScreen.tsx`.
-- Cambios: las 3 entradas nuevas de `TYPE_ICONS` (`person-add-outline`, `checkmark-circle-outline`, `close-circle-outline`); al tocar una notificación con `sharingRequestId`, marcarla como leída y abrir el modal local con los datos limitados. Si la solicitud ya no está PENDING, mostrar el error 409 y no navegar a una cita inexistente. Sin rutas en `app/`.
-- Verificación: V frontend + prueba manual de que el modal muestra "Un usuario de AutoStory" cuando el emisor no tiene nombre, y de que tras aceptar aparece el vehículo en la lista y la notificación del emisor llega al otro usuario.
+- Cambios: abrir el modal local SOLO cuando `notification.type === 'SHARING_REQUEST_RECEIVED'` y haya `sharingRequestId`: marcarla como leída y pedir el detalle con `GET /sharing-requests/:requestId`. Las notificaciones `SHARING_REQUEST_ACCEPTED` y `SHARING_REQUEST_REJECTED` van al emisor: solo se marcan como leídas, sin abrir el modal ni llamar a `GET /sharing-requests/:requestId` (para el emisor respondería 404). Si la solicitud ya no está PENDING, el modal muestra "Ya respondiste esta solicitud". Sin rutas en `app/`.
+- Verificación: V frontend + prueba manual de que el modal muestra "Un usuario de AutoStory" cuando el emisor no tiene nombre, y de que tras aceptar aparece el vehículo en la lista y la notificación del emisor llega al otro usuario; tocar una notificación `SHARING_REQUEST_ACCEPTED` o `SHARING_REQUEST_REJECTED` solo la marca como leída, sin abrir modal ni disparar `GET /sharing-requests/:requestId` (comprobar en la pestaña de red); abrir una `SHARING_REQUEST_RECEIVED` cuya solicitud ya fue respondida muestra "Ya respondiste esta solicitud".
 - Commit: `feat(paso 7): modal de solicitud de compartir en notificaciones`
 
 ### Paso 8 — cierre y documentación
@@ -285,7 +288,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | Versión de PostgreSQL | **No verificado.** PG 11 prohíbe `ADD VALUE` en transacción; PG 12+ no permite usar el valor hasta el commit. | `SELECT version();` en Neon y en la BD de tests antes del paso 1. El diseño de dos migraciones funciona en ambos. |
 | `ForbiddenTransactionModeOverrideError` | **Confirmado** en la API de TypeORM 0.3.31: `transaction = false` exige `migrationsTransactionMode` distinto de `all`. | `npm run typecheck` no lo detecta; comprobar el valor en ambos data sources y ejecutar la integración en BD de tests. |
 | `down` de enums con pérdida semántica | **Confirmado:** PostgreSQL no permite quitar valores de un enum; reconstruir el tipo mapa `CANCELLED → REJECTED` y los 3 tipos nuevos a valores antiguos. | Revisar el `down` en el diff; ejecutar `up`/`down`/`up` solo en la BD de tests. No ejecutar `down` en Neon sin avisar. |
-| La lista de pendientes revela correos | **Riesgo aceptado:** el modal del dueño muestra el correo del receptor, que es el mismo que él escribió; no se consultan correos de terceros y la búsqueda inexistente devuelve 202 neutral. | Test: correo inexistente da 202 y no inserta fila ni notificación; la respuesta no incluye datos de usuario. |
+| La lista de pendientes revela correos | **Riesgo aceptado:** el dueño puede inferir si un correo existe (a) por el 409 al reenviar a una solicitud PENDING previa y (b) porque la lista solo contiene solicitudes creadas; el mensaje 202 neutral solo evita la señal inmediata. Mitigado por el límite de 10 envíos/minuto y por requerir autenticación y vehículo propio. | Test: correo inexistente da 202 y no inserta fila ni notificación; comprobar que el 409 de duplicado y el contenido de la lista son el canal de inferencia documentado, sin afirmar que no hay fuga. |
 | Notificación borrada por retención R26 | **Confirmado:** si se borra la notificación de una solicitud PENDING, el receptor pierde su único punto de entrada; no hay lista de recibidas. Mitigación: el dueño ve la pendiente y puede cancelarla. | Test: tras simular limpieza de notificaciones, el dueño sigue viendo la pendiente y puede cancelarla. |
 | Borrado de cuenta con la nueva FK | **Confirmado parcialmente:** `account-deletion.service.ts` borra `sharing_requests` antes que `users`, y las notificaciones pueden caer por cascada de ambos lados. Hay que comprobar el orden con la FK nueva de `notifications.sharing_request_id`. | `npm run test:integration` (suite `account-deletion`) contra la BD de tests; si aparece violación de FK, ajustar solo el orden de borrado en ese service. |
 | Foto firmada del ex invitado | **No verificado en ejecución:** al revocar/abandonar, la URL firmada podría seguir sirviendo la foto hasta caducar; el acceso al vehículo sí debe desaparecer. | Test de que `GET /vehicles` ya no lista el vehículo para el ex invitado; la foto se sirve desde URL firmada con caducidad (R30). |
@@ -335,5 +338,5 @@ Regla: cuando se empieza el paso N+1, se escribe aquí el SHA del commit del pas
 2. Ejecutar `git log --oneline -12` y contrastar con la sección 8 para saber qué pasos están hechos. Si algún SHA no coincide, parar y reportar.
 3. Si el paso 1 sigue pendiente, pedir al usuario `SELECT version();` en Neon y en la BD de tests antes de tocar migraciones. Nunca ejecutar migraciones contra Neon.
 4. Ejecutar SOLO el siguiente paso pendiente, con su verificación y su mensaje de commit. No adelantar pasos ni mezclar cambios ajenos.
-5. Al terminar el paso, proponer el mensaje de commit; el usuario revisa el diff, commitea y reporta el SHA para la sección 8.
+5. Al terminar el paso, proponer el mensaje de commit: el agente NO commitea ni hace push; el usuario revisa el diff y commitea. El usuario reporta el SHA para la sección 8.
 6. Si aparece una contradicción nueva entre casos de uso, MER y código, reportarla por escrito sin resolverla en silencio.

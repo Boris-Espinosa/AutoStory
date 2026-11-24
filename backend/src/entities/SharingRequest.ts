@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -14,9 +15,14 @@ export enum SharingRequestStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
   REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
 }
 
 @Entity({ name: 'sharing_requests' })
+@Index('UQ_sharing_requests_pending', ['vehicleId', 'receiverUserId'], {
+  unique: true,
+  where: `"status" = 'PENDING'`,
+})
 @Check(
   'CHK_sharing_requests_distinct_users',
   `"sender_user_id" <> "receiver_user_id"`,

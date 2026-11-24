@@ -321,7 +321,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 
 | Paso | Estado | SHA del commit |
 | ---- | ------ | -------------- |
-| 1 | pendiente | — |
+| 1 | hecho | — |
 | 2 | pendiente | — |
 | 3 | pendiente | — |
 | 4 | pendiente | — |
@@ -331,6 +331,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | 8 | pendiente | — |
 
 Regla: cuando se empieza el paso N+1, se escribe aquí el SHA del commit del paso N (`git rev-parse --short HEAD`). El commit de este documento (`docs: plan de implementación de compartir vehículo`) no aparece en la tabla porque no es un paso. El prerrequisito de PostgreSQL (sección 3) tampoco es paso y no tiene commit.
+
+Paso 1: no hay paso 0, así que no hay SHA anterior que anotar. El último commit previo fue `43e4d60` (`docs: corregir plan de compartir vehículo`). El SHA de este paso se registrará al iniciar el paso 2, según la regla de esta sección.
 
 ## 9. Cómo retomar en una sesión nueva
 

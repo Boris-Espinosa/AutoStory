@@ -43,6 +43,7 @@ export function createTestDataSource(): DataSource {
     url: sslOptions.url,
     entities: ENTITIES,
     migrations: MIGRATIONS,
+    migrationsTransactionMode: 'each',
     dropSchema: true,
     migrationsRun: true,
     synchronize: false,

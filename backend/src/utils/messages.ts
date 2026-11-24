@@ -88,3 +88,16 @@ export function appointmentNotificationBody(
   // El cuerpo de la notificación admite 300 caracteres en la base.
   return Array.from(body).slice(0, 300).join('');
 }
+
+export const SHARING_NEUTRAL_MESSAGE =
+  'Si la persona tiene cuenta en AutoStory, recibirá la solicitud.';
+
+export const SHARING_REQUEST_RECEIVED_TITLE =
+  'Solicitud de compartir vehículo';
+
+export function sharingRequestReceivedBody(senderName: string | null): string {
+  const name = senderName?.trim() || 'Un usuario de AutoStory';
+  const body = `${name} quiere compartir un vehículo contigo.`;
+
+  return Array.from(body).slice(0, 300).join('');
+}

@@ -13,6 +13,7 @@ import { AppointmentReminder } from './entities/AppointmentReminder';
 import { Maintenance } from './entities/Maintenance';
 import { Notification } from './entities/Notification';
 import { Part } from './entities/Part';
+import { SharingRequest } from './entities/SharingRequest';
 import { User } from './entities/User';
 import { UserVehicle } from './entities/UserVehicle';
 import { Vehicle } from './entities/Vehicle';
@@ -27,6 +28,7 @@ import {
 } from './services/account-deletion.service';
 import { createMeRouter } from './routes/me.routes';
 import { RemindersService } from './services/reminders.service';
+import { SharingRequestsService } from './services/sharing-requests.service';
 import { createNotificationsRouter } from './routes/notifications.routes';
 import { NotificationsService } from './services/notifications.service';
 import { createPartsRouter } from './routes/parts.routes';
@@ -119,6 +121,12 @@ export function createApp(
   const vehiclesService = new VehiclesService({
     userVehicles: dataSource.getRepository(UserVehicle),
     vehicles: dataSource.getRepository(Vehicle),
+  });
+
+  const sharingRequestsService = new SharingRequestsService({
+    sharingRequests: dataSource.getRepository(SharingRequest),
+    users: dataSource.getRepository(User),
+    userVehicles: dataSource.getRepository(UserVehicle),
   });
 
   const vinDecoder = new VinDecoderService();
@@ -230,6 +238,7 @@ export function createApp(
       vinDecoder,
       clock,
       storage,
+      sharingRequestsService,
     ),
   );
 

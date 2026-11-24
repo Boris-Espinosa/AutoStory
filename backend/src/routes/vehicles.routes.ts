@@ -24,6 +24,11 @@ import {
   uploadVehiclePhoto,
 } from '../controllers/vehicles.controller';
 import {
+  cancelSharingRequest,
+  listSharingRequests,
+  sendSharingRequest,
+} from '../controllers/sharing-requests.controller';
+import {
   photoUploadErrors,
   vehiclePhotoUpload,
 } from '../middlewares/photo-upload';
@@ -36,6 +41,7 @@ import {
   createMaintenanceSchema,
   updateMaintenanceSchema,
 } from '../schemas/maintenance.schema';
+import { sendSharingRequestSchema } from '../schemas/sharing-request.schema';
 import {
   createVehicleSchema,
   updateVehicleSchema,
@@ -43,6 +49,7 @@ import {
 import { AppointmentService } from '../services/appointments.service';
 import { MaintenanceService } from '../services/maintenance.service';
 import { PartsService } from '../services/parts.service';
+import { SharingRequestsService } from '../services/sharing-requests.service';
 import { VehicleAccessService } from '../services/vehicle-access.service';
 import { VehiclesService } from '../services/vehicles.service';
 import { VinDecoderService } from '../services/vin-decoder.service';
@@ -58,6 +65,7 @@ export function createVehiclesRouter(
   vinDecoder: VinDecoderService,
   clock: Clock,
   storage: StorageService,
+  sharingRequestsService: SharingRequestsService,
 ): Router {
   const router = Router();
 
@@ -74,6 +82,19 @@ export function createVehiclesRouter(
     handler: (_req, res) => {
       res.status(429).json({
         message: 'Demasiadas consultas de VIN. Intenta de nuevo en un minuto.',
+      });
+    },
+  });
+
+  const sharingRequestLimiter = rateLimit({
+    windowMs: 60 * 1_000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth.userId,
+    handler: (_req, res) => {
+      res.status(429).json({
+        message: 'Demasiadas solicitudes. Intenta de nuevo en un minuto.',
       });
     },
   });
@@ -179,6 +200,26 @@ export function createVehiclesRouter(
     '/:vehicleId/photo',
     owner,
     asyncHandler(removeVehiclePhoto(vehiclesService, storage)),
+  );
+
+  router.post(
+    '/:vehicleId/sharing-requests',
+    owner,
+    sharingRequestLimiter,
+    validateBody(sendSharingRequestSchema),
+    asyncHandler(sendSharingRequest(sharingRequestsService)),
+  );
+
+  router.get(
+    '/:vehicleId/sharing-requests',
+    owner,
+    asyncHandler(listSharingRequests(sharingRequestsService)),
+  );
+
+  router.patch(
+    '/:vehicleId/sharing-requests/:requestId/cancel',
+    owner,
+    asyncHandler(cancelSharingRequest(sharingRequestsService)),
   );
 
   return router;

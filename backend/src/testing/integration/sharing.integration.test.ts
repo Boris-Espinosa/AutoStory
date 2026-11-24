@@ -331,6 +331,32 @@ describe('API del dueño para compartir vehículo', () => {
     });
   });
 
+  it('cancela una solicitud pendiente y devuelve su id y respondedAt', async () => {
+    const vehicle = await seedVehicleWithOwner();
+
+    await api('POST', `/vehicles/${vehicle.id}/sharing-requests`, {
+      userId: 'user-1',
+      body: { email: 'bruno@example.com' },
+    });
+    const [request] = await sharingRequests.find();
+
+    const response = await api(
+      'PATCH',
+      `/vehicles/${vehicle.id}/sharing-requests/${request.id}/cancel`,
+      { userId: 'user-1' },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: request.id,
+      status: 'CANCELLED',
+      respondedAt: expect.any(String),
+    });
+    await expect(
+      sharingRequests.findOneBy({ id: request.id }),
+    ).resolves.toMatchObject({ status: SharingRequestStatus.CANCELLED });
+  });
+
   it('expone sharingRequestId en GET /notifications', async () => {
     const vehicle = await seedVehicleWithOwner();
 

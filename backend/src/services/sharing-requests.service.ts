@@ -224,22 +224,24 @@ export class SharingRequestsService {
       throw new HttpError(404, 'Solicitud no encontrada.');
     }
 
-    const updated: CancelRow[] = await this.repositories.sharingRequests.query(
-      `UPDATE "sharing_requests"
-          SET status = 'CANCELLED', responded_at = now()
-        WHERE id = $1 AND vehicle_id = $2 AND status = 'PENDING'
-        RETURNING id, responded_at`,
-      [requestId, vehicleId],
-    );
+    // TypeORM devuelve [filas, filasAfectadas] para UPDATE con RETURNING.
+    const [rows]: [CancelRow[], number] =
+      await this.repositories.sharingRequests.query(
+        `UPDATE "sharing_requests"
+            SET status = 'CANCELLED', responded_at = now()
+          WHERE id = $1 AND vehicle_id = $2 AND status = 'PENDING'
+          RETURNING id, responded_at`,
+        [requestId, vehicleId],
+      );
 
-    if (updated.length === 0) {
+    if (rows.length === 0) {
       throw new HttpError(409, 'La solicitud ya no está pendiente.');
     }
 
     return {
-      id: updated[0].id,
+      id: rows[0].id,
       status: SharingRequestStatus.CANCELLED,
-      respondedAt: new Date(updated[0].responded_at).toISOString(),
+      respondedAt: new Date(rows[0].responded_at).toISOString(),
     };
   }
 
@@ -297,7 +299,8 @@ export class SharingRequestsService {
   ): Promise<RespondedSharingRequestView> {
     return this.repositories.sharingRequests.manager.transaction(
       async (manager) => {
-        const updated: RespondRow[] = await manager.query(
+        // TypeORM devuelve [filas, filasAfectadas] para UPDATE con RETURNING.
+        const [rows]: [RespondRow[], number] = await manager.query(
           `UPDATE "sharing_requests"
               SET status = $3, responded_at = now()
             WHERE id = $1 AND receiver_user_id = $2 AND status = 'PENDING'
@@ -305,7 +308,7 @@ export class SharingRequestsService {
           [requestId, receiverId, status],
         );
 
-        if (updated.length === 0) {
+        if (rows.length === 0) {
           const existing: Array<{ status: SharingRequestStatus }> =
             await manager.query(
               `SELECT status
@@ -320,7 +323,7 @@ export class SharingRequestsService {
           throw new HttpError(409, 'La solicitud ya no está pendiente.');
         }
 
-        const request = updated[0];
+        const request = rows[0];
         const accepted = status === SharingRequestStatus.ACCEPTED;
 
         if (accepted) {

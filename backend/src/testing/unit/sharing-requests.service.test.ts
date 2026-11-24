@@ -216,7 +216,8 @@ describe('SharingRequestsService.cancel', () => {
     sharingRequests.query
       .mockResolvedValueOnce([{ id: REQUEST_ID }])
       .mockResolvedValueOnce([
-        { id: REQUEST_ID, responded_at: SENT_AT },
+        [{ id: REQUEST_ID, responded_at: SENT_AT }],
+        1,
       ]);
 
     await expect(service.cancel(VEHICLE_ID, REQUEST_ID)).resolves.toEqual({
@@ -239,7 +240,7 @@ describe('SharingRequestsService.cancel', () => {
     const { service, sharingRequests } = buildService();
     sharingRequests.query
       .mockResolvedValueOnce([{ id: REQUEST_ID }])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([[], 0]);
 
     await expect(
       service.cancel(VEHICLE_ID, REQUEST_ID),
@@ -323,7 +324,7 @@ describe('SharingRequestsService.accept y reject', () => {
   ): void {
     manager.query.mockImplementation((sql: string) => {
       if (sql.includes('UPDATE "sharing_requests"')) {
-        return Promise.resolve(updated);
+        return Promise.resolve([updated, updated.length]);
       }
       if (sql.includes('SELECT status')) {
         return Promise.resolve(existing);
@@ -422,7 +423,7 @@ describe('SharingRequestsService.accept y reject', () => {
     manager.query.mockImplementation((sql: string) => {
       if (sql.includes('UPDATE "sharing_requests"')) {
         state.status = SharingRequestStatus.ACCEPTED;
-        return Promise.resolve([updatedRow]);
+        return Promise.resolve([[updatedRow], 1]);
       }
       if (sql.includes('INSERT INTO "user_vehicles"')) {
         return Promise.reject(new Error('fallo simulado en la membresía'));

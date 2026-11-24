@@ -322,8 +322,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | Paso | Estado | SHA del commit |
 | ---- | ------ | -------------- |
 | 1 | hecho | 2ff740a |
-| 2 | hecho | — |
-| 3 | pendiente | — |
+| 2 | hecho | 5133fd7 |
+| 3 | hecho | — |
 | 4 | pendiente | — |
 | 5 | pendiente | — |
 | 6 | pendiente | — |
@@ -335,6 +335,8 @@ Regla: cuando se empieza el paso N+1, se escribe aquí el SHA del commit del pas
 Paso 1: no hay paso 0, así que no hay SHA anterior que anotar. El último commit previo fue `43e4d60` (`docs: corregir plan de compartir vehículo`). El SHA de este paso se registrará al iniciar el paso 2, según la regla de esta sección.
 
 Paso 2: el SHA se anotará al iniciar el paso 3, según la misma regla.
+
+Paso 3: el SHA se anotará al iniciar el paso 4, según la misma regla.
 
 ## 9. Cómo retomar en una sesión nueva
 

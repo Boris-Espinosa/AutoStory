@@ -336,3 +336,159 @@ describe('API del dueño para compartir vehículo', () => {
     expect(notification?.sharingRequestId).toBe(request.id);
   });
 });
+
+describe('API del receptor para responder solicitudes', () => {
+  async function seedPendingRequest() {
+    const vehicle = await seedVehicleWithOwner();
+    const request = await sharingRequests.save(pendingFor(vehicle.id));
+    return { vehicle, request };
+  }
+
+  it('muestra el detalle limitado y responde 404 si la solicitud es ajena', async () => {
+    const { request } = await seedPendingRequest();
+
+    const detail = await api('GET', `/sharing-requests/${request.id}`, {
+      userId: 'user-2',
+    });
+    expect(detail.status).toBe(200);
+    expect(detail.body).toEqual({
+      id: request.id,
+      vehicle: { brand: 'Volkswagen', model: 'Polo', year: 2021 },
+      senderName: 'Ana',
+      status: 'PENDING',
+      sentAt: expect.any(String),
+    });
+
+    const json = JSON.stringify(detail.body);
+    for (const field of [
+      'licensePlate',
+      'vin',
+      'photoUrl',
+      'maintenances',
+      'parts',
+      'appointments',
+    ]) {
+      expect(json).not.toContain(field);
+    }
+
+    const ajena = await api('GET', `/sharing-requests/${request.id}`, {
+      userId: 'user-1',
+    });
+    expect(ajena.status).toBe(404);
+  });
+
+  it('acepta: crea la membresía GUEST y notifica al emisor', async () => {
+    const { request } = await seedPendingRequest();
+
+    const response = await api(
+      'POST',
+      `/sharing-requests/${request.id}/accept`,
+      { userId: 'user-2' },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: request.id, status: 'ACCEPTED' });
+    await expect(
+      userVehicles.findOneBy({ userId: 'user-2', vehicleId: request.vehicleId }),
+    ).resolves.toMatchObject({ role: UserVehicleRole.GUEST });
+    await expect(
+      notifications.findOneBy({
+        type: NotificationType.SHARING_REQUEST_ACCEPTED,
+      }),
+    ).resolves.toMatchObject({
+      userId: 'user-1',
+      sharingRequestId: request.id,
+    });
+  });
+
+  it('rechaza: no crea membresía y notifica al emisor', async () => {
+    const { request } = await seedPendingRequest();
+
+    const response = await api(
+      'POST',
+      `/sharing-requests/${request.id}/reject`,
+      { userId: 'user-2' },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: request.id, status: 'REJECTED' });
+    await expect(
+      userVehicles.countBy({ userId: 'user-2' }),
+    ).resolves.toBe(0);
+    await expect(
+      notifications.findOneBy({
+        type: NotificationType.SHARING_REQUEST_REJECTED,
+      }),
+    ).resolves.toMatchObject({
+      userId: 'user-1',
+      sharingRequestId: request.id,
+    });
+  });
+
+  it('responde 409 al responder dos veces', async () => {
+    const { request } = await seedPendingRequest();
+
+    await api('POST', `/sharing-requests/${request.id}/accept`, {
+      userId: 'user-2',
+    });
+    const second = await api(
+      'POST',
+      `/sharing-requests/${request.id}/reject`,
+      { userId: 'user-2' },
+    );
+
+    expect(second.status).toBe(409);
+    await expect(
+      sharingRequests.findOneBy({ id: request.id }),
+    ).resolves.toMatchObject({ status: SharingRequestStatus.ACCEPTED });
+  });
+
+  it('si falla la membresía, la solicitud sigue PENDING y no hay notificación', async () => {
+    const { request } = await seedPendingRequest();
+    await dataSource.query(`
+      CREATE FUNCTION fail_guest_insert() RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'fallo simulado en la membresía';
+      END; $$ LANGUAGE plpgsql
+    `);
+    await dataSource.query(`
+      CREATE TRIGGER tmp_fail_guest_insert
+      BEFORE INSERT ON "user_vehicles"
+      FOR EACH ROW
+      WHEN (NEW.user_id = 'user-2')
+      EXECUTE FUNCTION fail_guest_insert()
+    `);
+
+    try {
+      const response = await api(
+        'POST',
+        `/sharing-requests/${request.id}/accept`,
+        { userId: 'user-2' },
+      );
+      expect(response.status).toBe(500);
+    } finally {
+      await dataSource.query(
+        'DROP TRIGGER IF EXISTS tmp_fail_guest_insert ON "user_vehicles"',
+      );
+      await dataSource.query('DROP FUNCTION IF EXISTS fail_guest_insert()');
+    }
+
+    await expect(
+      sharingRequests.findOneBy({ id: request.id }),
+    ).resolves.toMatchObject({ status: SharingRequestStatus.PENDING });
+    await expect(userVehicles.countBy({ userId: 'user-2' })).resolves.toBe(0);
+    await expect(
+      notifications.countBy({
+        type: NotificationType.SHARING_REQUEST_ACCEPTED,
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it('responde 400 si el UUID no es válido', async () => {
+    const response = await api('GET', '/sharing-requests/no-es-uuid', {
+      userId: 'user-2',
+    });
+
+    expect(response.status).toBe(400);
+  });
+});

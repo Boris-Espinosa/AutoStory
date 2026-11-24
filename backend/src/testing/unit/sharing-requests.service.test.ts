@@ -1,13 +1,20 @@
 import { EntityManager, Repository } from 'typeorm';
 import { NotificationType } from '../../entities/Notification';
-import { SharingRequest } from '../../entities/SharingRequest';
+import {
+  SharingRequest,
+  SharingRequestStatus,
+} from '../../entities/SharingRequest';
 import { User } from '../../entities/User';
 import { UserVehicle } from '../../entities/UserVehicle';
 import { createNotifications } from '../../jobs/notify';
 import { SharingRequestsService } from '../../services/sharing-requests.service';
 import {
+  sharingRequestAcceptedBody,
   sharingRequestReceivedBody,
+  sharingRequestRejectedBody,
+  SHARING_REQUEST_ACCEPTED_TITLE,
   SHARING_REQUEST_RECEIVED_TITLE,
+  SHARING_REQUEST_REJECTED_TITLE,
 } from '../../utils/messages';
 
 jest.mock('../../jobs/notify', () => ({
@@ -239,16 +246,223 @@ describe('SharingRequestsService.cancel', () => {
   });
 });
 
+describe('SharingRequestsService.getForReceiver', () => {
+  const detailRow = {
+    id: REQUEST_ID,
+    brand: 'Volkswagen',
+    model: 'Polo',
+    year: 2021,
+    sender_name: 'Ana',
+    status: 'PENDING',
+    sent_at: SENT_AT,
+  };
+
+  it('devuelve solo marca, modelo, año, emisor y fecha', async () => {
+    const { service, sharingRequests } = buildService();
+    sharingRequests.query.mockResolvedValue([detailRow]);
+
+    await expect(
+      service.getForReceiver(RECEIVER_ID, REQUEST_ID),
+    ).resolves.toEqual({
+      id: REQUEST_ID,
+      vehicle: { brand: 'Volkswagen', model: 'Polo', year: 2021 },
+      senderName: 'Ana',
+      status: 'PENDING',
+      sentAt: SENT_AT.toISOString(),
+    });
+    expect(sharingRequests.query).toHaveBeenCalledWith(
+      expect.stringContaining('sr.receiver_user_id = $2'),
+      [REQUEST_ID, RECEIVER_ID],
+    );
+  });
+
+  it('usa el nombre genérico cuando el emisor no tiene nombre', async () => {
+    const { service, sharingRequests } = buildService();
+    sharingRequests.query.mockResolvedValue([
+      { ...detailRow, sender_name: '   ' },
+    ]);
+
+    await expect(
+      service.getForReceiver(RECEIVER_ID, REQUEST_ID),
+    ).resolves.toMatchObject({ senderName: 'Un usuario de AutoStory' });
+  });
+
+  it('responde 404 si la solicitud es ajena', async () => {
+    const { service, sharingRequests } = buildService();
+    sharingRequests.query.mockResolvedValue([]);
+
+    await expect(
+      service.getForReceiver(SENDER_ID, REQUEST_ID),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('responde 409 si la solicitud ya no está pendiente', async () => {
+    const { service, sharingRequests } = buildService();
+    sharingRequests.query.mockResolvedValue([
+      { ...detailRow, status: 'ACCEPTED' },
+    ]);
+
+    await expect(
+      service.getForReceiver(RECEIVER_ID, REQUEST_ID),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('SharingRequestsService.accept y reject', () => {
+  const updatedRow = {
+    id: REQUEST_ID,
+    sender_user_id: SENDER_ID,
+    vehicle_id: VEHICLE_ID,
+  };
+
+  function mockRespond(
+    manager: MockManager,
+    updated: unknown[],
+    existing: unknown[] = [],
+  ): void {
+    manager.query.mockImplementation((sql: string) => {
+      if (sql.includes('UPDATE "sharing_requests"')) {
+        return Promise.resolve(updated);
+      }
+      if (sql.includes('SELECT status')) {
+        return Promise.resolve(existing);
+      }
+      return Promise.resolve([]);
+    });
+    manager.findOne.mockImplementation((entity: unknown) =>
+      entity === User ? Promise.resolve({ name: 'Ana' }) : Promise.resolve(null),
+    );
+  }
+
+  it('acepta en una transacción: crea GUEST y notifica al emisor', async () => {
+    const { service, manager } = buildService();
+    mockRespond(manager, [updatedRow]);
+
+    await expect(
+      service.accept(RECEIVER_ID, REQUEST_ID),
+    ).resolves.toEqual({ id: REQUEST_ID, status: 'ACCEPTED' });
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'PENDING'"),
+      [REQUEST_ID, RECEIVER_ID, 'ACCEPTED'],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO "user_vehicles"'),
+      [RECEIVER_ID, VEHICLE_ID],
+    );
+    expect(createNotifications).toHaveBeenCalledWith(manager, [
+      expect.objectContaining({
+        userId: SENDER_ID,
+        type: NotificationType.SHARING_REQUEST_ACCEPTED,
+        title: SHARING_REQUEST_ACCEPTED_TITLE,
+        body: expect.stringContaining('Ana'),
+        sharingRequestId: REQUEST_ID,
+      }),
+    ]);
+  });
+
+  it('rechaza sin crear membresía y notifica al emisor', async () => {
+    const { service, manager } = buildService();
+    mockRespond(manager, [updatedRow]);
+
+    await expect(
+      service.reject(RECEIVER_ID, REQUEST_ID),
+    ).resolves.toEqual({ id: REQUEST_ID, status: 'REJECTED' });
+
+    expect(manager.query).not.toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO "user_vehicles"'),
+      expect.anything(),
+    );
+    expect(createNotifications).toHaveBeenCalledWith(manager, [
+      expect.objectContaining({
+        userId: SENDER_ID,
+        type: NotificationType.SHARING_REQUEST_REJECTED,
+        title: SHARING_REQUEST_REJECTED_TITLE,
+        sharingRequestId: REQUEST_ID,
+      }),
+    ]);
+  });
+
+  it('responde 404 si la solicitud es ajena', async () => {
+    const { service, manager } = buildService();
+    mockRespond(manager, []);
+
+    await expect(
+      service.accept(SENDER_ID, REQUEST_ID),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(createNotifications).not.toHaveBeenCalled();
+  });
+
+  it('responde 409 si la solicitud ya fue respondida', async () => {
+    const { service, manager } = buildService();
+    mockRespond(manager, [], [{ status: 'ACCEPTED' }]);
+
+    await expect(
+      service.reject(RECEIVER_ID, REQUEST_ID),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(createNotifications).not.toHaveBeenCalled();
+  });
+
+  it('si falla la membresía, no notifica y la solicitud sigue PENDING', async () => {
+    const { service, manager, sharingRequests } = buildService();
+    const state = { status: SharingRequestStatus.PENDING };
+
+    sharingRequests.manager.transaction.mockImplementation(
+      async (callback: (tx: EntityManager) => Promise<unknown>) => {
+        const before = { ...state };
+        try {
+          return await callback(manager as unknown as EntityManager);
+        } catch (error) {
+          Object.assign(state, before);
+          throw error;
+        }
+      },
+    );
+    manager.query.mockImplementation((sql: string) => {
+      if (sql.includes('UPDATE "sharing_requests"')) {
+        state.status = SharingRequestStatus.ACCEPTED;
+        return Promise.resolve([updatedRow]);
+      }
+      if (sql.includes('INSERT INTO "user_vehicles"')) {
+        return Promise.reject(new Error('fallo simulado en la membresía'));
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(
+      service.accept(RECEIVER_ID, REQUEST_ID),
+    ).rejects.toThrow('fallo simulado en la membresía');
+    expect(state.status).toBe(SharingRequestStatus.PENDING);
+    expect(createNotifications).not.toHaveBeenCalled();
+  });
+});
+
 describe('textos de compartir', () => {
   it('respeta los límites de título y cuerpo', () => {
-    expect(SHARING_REQUEST_RECEIVED_TITLE.length).toBeLessThanOrEqual(120);
-    expect(
-      sharingRequestReceivedBody('N'.repeat(400)).length,
-    ).toBeLessThanOrEqual(300);
+    for (const title of [
+      SHARING_REQUEST_RECEIVED_TITLE,
+      SHARING_REQUEST_ACCEPTED_TITLE,
+      SHARING_REQUEST_REJECTED_TITLE,
+    ]) {
+      expect(title.length).toBeLessThanOrEqual(120);
+    }
+    for (const body of [
+      sharingRequestReceivedBody('N'.repeat(400)),
+      sharingRequestAcceptedBody('N'.repeat(400)),
+      sharingRequestRejectedBody('N'.repeat(400)),
+    ]) {
+      expect(body.length).toBeLessThanOrEqual(300);
+    }
   });
 
   it('usa el nombre genérico cuando el emisor no tiene nombre', () => {
     expect(sharingRequestReceivedBody(null)).toContain(
+      'Un usuario de AutoStory',
+    );
+    expect(sharingRequestAcceptedBody(null)).toContain(
+      'Un usuario de AutoStory',
+    );
+    expect(sharingRequestRejectedBody(null)).toContain(
       'Un usuario de AutoStory',
     );
   });

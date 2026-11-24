@@ -33,6 +33,7 @@ import { createNotificationsRouter } from './routes/notifications.routes';
 import { NotificationsService } from './services/notifications.service';
 import { createPartsRouter } from './routes/parts.routes';
 import { PartsService } from './services/parts.service';
+import { createSharingRequestsRouter } from './routes/sharing-requests.routes';
 import { createVehiclesRouter } from './routes/vehicles.routes';
 import { VehicleAccessService } from './services/vehicle-access.service';
 import { VehiclesService } from './services/vehicles.service';
@@ -240,6 +241,11 @@ export function createApp(
       storage,
       sharingRequestsService,
     ),
+  );
+
+  app.use(
+    '/sharing-requests',
+    createSharingRequestsRouter(sharingRequestsService, auth),
   );
 
   app.use(notFoundHandler);

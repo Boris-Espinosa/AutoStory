@@ -9,8 +9,13 @@ import { User } from '../entities/User';
 import { UserVehicle } from '../entities/UserVehicle';
 import { createNotifications } from '../jobs/notify';
 import {
+  sharingDisplayName,
+  sharingRequestAcceptedBody,
   sharingRequestReceivedBody,
+  sharingRequestRejectedBody,
+  SHARING_REQUEST_ACCEPTED_TITLE,
   SHARING_REQUEST_RECEIVED_TITLE,
+  SHARING_REQUEST_REJECTED_TITLE,
 } from '../utils/messages';
 
 export interface SharingRequestsRepositories {
@@ -32,6 +37,19 @@ export interface CancelledSharingRequestView {
   respondedAt: string;
 }
 
+export interface ReceiverSharingRequestView {
+  id: string;
+  vehicle: { brand: string; model: string; year: number };
+  senderName: string;
+  status: SharingRequestStatus;
+  sentAt: string;
+}
+
+export interface RespondedSharingRequestView {
+  id: string;
+  status: SharingRequestStatus.ACCEPTED | SharingRequestStatus.REJECTED;
+}
+
 interface EmailMatch {
   id: string;
 }
@@ -43,6 +61,22 @@ interface PendingCount {
 interface CancelRow {
   id: string;
   responded_at: Date | string;
+}
+
+interface ReceiverRow {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  sender_name: string | null;
+  status: SharingRequestStatus;
+  sent_at: Date | string;
+}
+
+interface RespondRow {
+  id: string;
+  sender_user_id: string;
+  vehicle_id: string;
 }
 
 const MAX_PENDING = 10;
@@ -194,5 +228,120 @@ export class SharingRequestsService {
       status: SharingRequestStatus.CANCELLED,
       respondedAt: new Date(updated[0].responded_at).toISOString(),
     };
+  }
+
+  async getForReceiver(
+    receiverId: string,
+    requestId: string,
+  ): Promise<ReceiverSharingRequestView> {
+    const rows: ReceiverRow[] = await this.repositories.sharingRequests.query(
+      `SELECT sr.id, v.brand, v.model, v.year, u.name AS sender_name,
+              sr.status, sr.sent_at
+         FROM "sharing_requests" sr
+         JOIN "vehicles" v ON v.id = sr.vehicle_id
+         JOIN "users" u ON u.id = sr.sender_user_id
+        WHERE sr.id = $1 AND sr.receiver_user_id = $2`,
+      [requestId, receiverId],
+    );
+
+    if (rows.length === 0) {
+      throw new HttpError(404, 'Solicitud no encontrada.');
+    }
+
+    const row = rows[0];
+
+    if (row.status !== SharingRequestStatus.PENDING) {
+      throw new HttpError(409, 'La solicitud ya no está pendiente.');
+    }
+
+    return {
+      id: row.id,
+      vehicle: { brand: row.brand, model: row.model, year: row.year },
+      senderName: sharingDisplayName(row.sender_name),
+      status: row.status,
+      sentAt: new Date(row.sent_at).toISOString(),
+    };
+  }
+
+  async accept(
+    receiverId: string,
+    requestId: string,
+  ): Promise<RespondedSharingRequestView> {
+    return this.respond(receiverId, requestId, SharingRequestStatus.ACCEPTED);
+  }
+
+  async reject(
+    receiverId: string,
+    requestId: string,
+  ): Promise<RespondedSharingRequestView> {
+    return this.respond(receiverId, requestId, SharingRequestStatus.REJECTED);
+  }
+
+  private async respond(
+    receiverId: string,
+    requestId: string,
+    status: RespondedSharingRequestView['status'],
+  ): Promise<RespondedSharingRequestView> {
+    return this.repositories.sharingRequests.manager.transaction(
+      async (manager) => {
+        const updated: RespondRow[] = await manager.query(
+          `UPDATE "sharing_requests"
+              SET status = $3, responded_at = now()
+            WHERE id = $1 AND receiver_user_id = $2 AND status = 'PENDING'
+            RETURNING id, sender_user_id, vehicle_id`,
+          [requestId, receiverId, status],
+        );
+
+        if (updated.length === 0) {
+          const existing: Array<{ status: SharingRequestStatus }> =
+            await manager.query(
+              `SELECT status
+                 FROM "sharing_requests"
+                WHERE id = $1 AND receiver_user_id = $2`,
+              [requestId, receiverId],
+            );
+
+          if (existing.length === 0) {
+            throw new HttpError(404, 'Solicitud no encontrada.');
+          }
+          throw new HttpError(409, 'La solicitud ya no está pendiente.');
+        }
+
+        const request = updated[0];
+        const accepted = status === SharingRequestStatus.ACCEPTED;
+
+        if (accepted) {
+          await manager.query(
+            `INSERT INTO "user_vehicles" (user_id, vehicle_id, role)
+             VALUES ($1, $2, 'GUEST')
+             ON CONFLICT (user_id, vehicle_id) DO NOTHING`,
+            [receiverId, request.vehicle_id],
+          );
+        }
+
+        const receiver = await manager.findOne(User, {
+          where: { id: receiverId },
+          select: ['name'],
+        });
+
+        await createNotifications(manager, [
+          {
+            userId: request.sender_user_id,
+            type: accepted
+              ? NotificationType.SHARING_REQUEST_ACCEPTED
+              : NotificationType.SHARING_REQUEST_REJECTED,
+            title: accepted
+              ? SHARING_REQUEST_ACCEPTED_TITLE
+              : SHARING_REQUEST_REJECTED_TITLE,
+            body: accepted
+              ? sharingRequestAcceptedBody(receiver?.name ?? null)
+              : sharingRequestRejectedBody(receiver?.name ?? null),
+            sharingRequestId: requestId,
+          },
+        ]);
+
+        return { id: request.id, status };
+      },
+    );
   }
 }

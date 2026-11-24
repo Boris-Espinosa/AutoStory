@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import { AsyncRouteHandler } from '../common/async-handler';
 import { ValidationError, formatIssues } from '../common/validation-pipe';
 import {
@@ -6,6 +7,16 @@ import {
 } from '../schemas/sharing-request.schema';
 import { SharingRequestsService } from '../services/sharing-requests.service';
 import { SHARING_NEUTRAL_MESSAGE } from '../utils/messages';
+
+function requestIdFrom(req: Request): string {
+  const parsed = uuidParamSchema.safeParse(req.params.requestId);
+
+  if (!parsed.success) {
+    throw new ValidationError(formatIssues(parsed.error));
+  }
+
+  return parsed.data;
+}
 
 export function sendSharingRequest(
   service: SharingRequestsService,
@@ -33,12 +44,32 @@ export function cancelSharingRequest(
   service: SharingRequestsService,
 ): AsyncRouteHandler {
   return async (req, res) => {
-    const parsed = uuidParamSchema.safeParse(req.params.requestId);
+    res.json(await service.cancel(req.params.vehicleId, requestIdFrom(req)));
+  };
+}
 
-    if (!parsed.success) {
-      throw new ValidationError(formatIssues(parsed.error));
-    }
+export function getSharingRequest(
+  service: SharingRequestsService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(
+      await service.getForReceiver(req.auth.userId, requestIdFrom(req)),
+    );
+  };
+}
 
-    res.json(await service.cancel(req.params.vehicleId, parsed.data));
+export function acceptSharingRequest(
+  service: SharingRequestsService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(await service.accept(req.auth.userId, requestIdFrom(req)));
+  };
+}
+
+export function rejectSharingRequest(
+  service: SharingRequestsService,
+): AsyncRouteHandler {
+  return async (req, res) => {
+    res.json(await service.reject(req.auth.userId, requestIdFrom(req)));
   };
 }

@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
-import { apiRequest } from './client';
+import { ApiError, apiRequest } from './client';
 import { notificationsQueryKey } from './notifications';
 import { vehiclesQueryKey } from './vehicles';
 
@@ -144,7 +144,21 @@ export function useSharingRequest(requestId: string | null) {
     queryKey: sharingRequestQueryKey(requestId ?? ''),
     queryFn: () => getSharingRequest(requestId as string),
     enabled: Boolean(requestId),
-    retry: false,
+    retry: (_failureCount, error) => {
+      if (
+        error instanceof ApiError &&
+        (error.status === 404 || error.status === 409)
+      ) {
+        return false;
+      }
+
+      return false;
+    },
+    refetchOnMount: (query) =>
+      !(
+        query.state.error instanceof ApiError &&
+        (query.state.error.status === 404 || query.state.error.status === 409)
+      ),
   });
 }
 
@@ -193,7 +207,13 @@ export function useAcceptSharingRequest() {
 
   return useMutation({
     mutationFn: acceptSharingRequest,
-    onSuccess: () => invalidateAfterSharingChange(queryClient),
+    onSuccess: (_data, requestId) => {
+      queryClient.removeQueries({
+        queryKey: sharingRequestQueryKey(requestId),
+      });
+      queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+    },
   });
 }
 
@@ -202,7 +222,13 @@ export function useRejectSharingRequest() {
 
   return useMutation({
     mutationFn: rejectSharingRequest,
-    onSuccess: () => invalidateAfterSharingChange(queryClient),
+    onSuccess: (_data, requestId) => {
+      queryClient.removeQueries({
+        queryKey: sharingRequestQueryKey(requestId),
+      });
+      queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+    },
   });
 }
 

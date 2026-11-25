@@ -52,6 +52,13 @@ export function SharingRequestModal({
 
   const detail = requestQuery.data;
   const busy = acceptMutation.isPending || rejectMutation.isPending;
+  const queryError = requestQuery.isError
+    ? requestQuery.error instanceof ApiError && requestQuery.error.status === 409
+      ? 'Ya respondiste esta solicitud'
+      : requestQuery.error instanceof ApiError && requestQuery.error.status === 404
+        ? 'La solicitud ya no está disponible'
+        : 'No se pudo cargar la solicitud.'
+    : null;
 
   const close = () => {
     if (!busy) {
@@ -93,57 +100,64 @@ export function SharingRequestModal({
 
             {requestQuery.isLoading ? <ActivityIndicator /> : null}
 
-            <MessageBanner
-              message={
-                requestQuery.isError
-                  ? 'No se pudo cargar la solicitud.'
-                  : error
-              }
-              tone="error"
-            />
-
-            {detail ? (
+            {queryError ? (
               <>
-                <Card style={styles.detailCard}>
-                  <DetailRow label="Marca" value={detail.vehicle.brand} />
-                  <DetailRow label="Modelo" value={detail.vehicle.model} />
-                  <DetailRow
-                    label="Año"
-                    value={String(detail.vehicle.year)}
-                  />
-                  <DetailRow label="Emisor" value={detail.senderName} />
-                </Card>
-
-                {detail.status === 'PENDING' ? (
-                  <>
-                    <Button
-                      disabled={rejectMutation.isPending}
-                      label="Aceptar"
-                      loading={acceptMutation.isPending}
-                      onPress={() => void respond(true)}
-                    />
-                    <Button
-                      disabled={acceptMutation.isPending}
-                      label="Rechazar"
-                      loading={rejectMutation.isPending}
-                      onPress={() => void respond(false)}
-                      variant="danger"
-                    />
-                  </>
-                ) : (
-                  <Text style={styles.responded}>
-                    Ya respondiste esta solicitud
-                  </Text>
-                )}
+                <MessageBanner message={queryError} tone="error" />
+                <Button
+                  disabled={busy}
+                  label="Cerrar"
+                  onPress={close}
+                  variant="secondary"
+                />
               </>
-            ) : null}
+            ) : (
+              <>
+                <MessageBanner message={error} tone="error" />
 
-            <Button
-              disabled={busy}
-              label="Cerrar"
-              onPress={close}
-              variant="secondary"
-            />
+                {detail ? (
+                  <>
+                    <Card style={styles.detailCard}>
+                      <DetailRow label="Marca" value={detail.vehicle.brand} />
+                      <DetailRow label="Modelo" value={detail.vehicle.model} />
+                      <DetailRow
+                        label="Año"
+                        value={String(detail.vehicle.year)}
+                      />
+                      <DetailRow label="Emisor" value={detail.senderName} />
+                    </Card>
+
+                    {detail.status === 'PENDING' ? (
+                      <>
+                        <Button
+                          disabled={busy}
+                          label="Aceptar"
+                          loading={acceptMutation.isPending}
+                          onPress={() => void respond(true)}
+                        />
+                        <Button
+                          disabled={busy}
+                          label="Rechazar"
+                          loading={rejectMutation.isPending}
+                          onPress={() => void respond(false)}
+                          variant="danger"
+                        />
+                      </>
+                    ) : (
+                      <Text style={styles.responded}>
+                        Ya respondiste esta solicitud
+                      </Text>
+                    )}
+                  </>
+                ) : null}
+
+                <Button
+                  disabled={busy}
+                  label="Cerrar"
+                  onPress={close}
+                  variant="secondary"
+                />
+              </>
+            )}
           </ScrollView>
         </View>
       </View>

@@ -325,8 +325,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | 2 | hecho | 5133fd7 |
 | 3 | hecho | cc06ee3 |
 | 4 | hecho | 241d19f |
-| 5 | hecho | — |
-| 6 | pendiente | — |
+| 5 | hecho | 26cf1b2 |
+| 6 | hecho | — |
 | 7 | pendiente | — |
 | 8 | pendiente | — |
 
@@ -340,7 +340,9 @@ Paso 3: el SHA se anotó al iniciar el paso 4 (`cc06ee3`).
 
 Paso 4: el SHA se anotó al iniciar el paso 5 (`241d19f`). Entre ese commit y este paso hubo un fix posterior (`8644a3f`) que corrige el resultado crudo de `UPDATE` en compartir vehículo; no cambia el alcance del paso 5.
 
-Paso 5: el SHA se anotará al iniciar el paso 6, según la misma regla.
+Paso 5: el SHA se anotó al iniciar el paso 6 (`26cf1b2`).
+
+Paso 6: el SHA se anotará al iniciar el paso 7, según la misma regla.
 
 ## 9. Cómo retomar en una sesión nueva
 

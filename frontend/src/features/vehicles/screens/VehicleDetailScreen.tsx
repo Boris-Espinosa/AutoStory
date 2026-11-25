@@ -18,6 +18,7 @@ import {
   useExpensesSummary,
   useLatestMaintenances,
 } from '../../../api/maintenances';
+import { useLeaveSharedVehicle } from '../../../api/sharing';
 import {
   Vehicle,
   uploadVehiclePhoto,
@@ -26,6 +27,7 @@ import {
   vehiclesQueryKey,
 } from '../../../api/vehicles';
 import { MessageBanner } from '../../../components/MessageBanner';
+import { ShareVehicleModal } from '../../../components/ShareVehicleModal';
 import { AppHeader } from '../../../components/ui/AppHeader';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -328,10 +330,14 @@ export default function VehicleDetailScreen() {
   const vehicle =
     vehiclesQuery.data?.find((item) => item.id === vehicleId) ?? null;
   const deleteMutation = useDeleteVehicle();
+  const leaveMutation = useLeaveSharedVehicle();
   const { isWide } = useBreakpoint();
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [shareVisible, setShareVisible] = useState(false);
+  const [leaveConfirmVisible, setLeaveConfirmVisible] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -390,6 +396,25 @@ export default function VehicleDetailScreen() {
       pathname: '/',
       params: { flash: 'Vehículo eliminado', flashTone: 'success' },
     });
+  };
+
+  const confirmLeave = async () => {
+    setLeaveError(null);
+
+    try {
+      await leaveMutation.mutateAsync(vehicleId);
+      setLeaveConfirmVisible(false);
+      router.replace({
+        pathname: '/',
+        params: { flash: 'Abandonaste el vehículo', flashTone: 'success' },
+      });
+    } catch (error) {
+      setLeaveError(
+        error instanceof ApiError
+          ? error.message
+          : 'No se pudo abandonar el vehículo. Intenta nuevamente.',
+      );
+    }
   };
 
   const photoUri = vehicle?.photoUrl ? resolvePhotoUrl(vehicle.photoUrl) : null;
@@ -462,6 +487,12 @@ export default function VehicleDetailScreen() {
                     }),
                 },
                 {
+                  key: 'share',
+                  label: 'Compartir vehículo',
+                  icon: 'person-add-outline',
+                  onPress: () => setShareVisible(true),
+                },
+                {
                   key: 'delete',
                   label: 'Eliminar vehículo',
                   icon: 'trash-outline',
@@ -469,6 +500,21 @@ export default function VehicleDetailScreen() {
                   onPress: () => {
                     setDeleteError(null);
                     setConfirmVisible(true);
+                  },
+                },
+              ]}
+            />
+          ) : vehicle?.role === 'GUEST' ? (
+            <OverflowMenu
+              items={[
+                {
+                  key: 'leave',
+                  label: 'Abandonar vehículo',
+                  icon: 'exit-outline',
+                  danger: true,
+                  onPress: () => {
+                    setLeaveError(null);
+                    setLeaveConfirmVisible(true);
                   },
                 },
               ]}
@@ -607,6 +653,32 @@ export default function VehicleDetailScreen() {
         title="Eliminar vehículo"
         visible={confirmVisible}
       />
+
+      <ConfirmModal
+        confirmLabel="Abandonar vehículo"
+        error={leaveError}
+        loading={leaveMutation.isPending}
+        message="¿Abandonar vehículo?"
+        onCancel={() => {
+          if (leaveMutation.isPending) {
+            return;
+          }
+
+          setLeaveError(null);
+          setLeaveConfirmVisible(false);
+        }}
+        onConfirm={() => void confirmLeave()}
+        title="Abandonar vehículo"
+        visible={leaveConfirmVisible}
+      />
+
+      {shareVisible && vehicle ? (
+        <ShareVehicleModal
+          onClose={() => setShareVisible(false)}
+          vehicleId={vehicle.id}
+          visible={shareVisible}
+        />
+      ) : null}
     </Screen>
   );
 }

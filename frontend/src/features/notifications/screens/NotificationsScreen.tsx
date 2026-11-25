@@ -22,6 +22,7 @@ import {
   useNotifications,
   useUnreadCount,
 } from '../../../api/notifications';
+import { SharingRequestModal } from '../components/SharingRequestModal';
 import { AppHeader } from '../../../components/ui/AppHeader';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -169,6 +170,7 @@ export default function NotificationsScreen() {
   const [missingAppointment, setMissingAppointment] = useState<string | null>(
     null,
   );
+  const [sharingRequestId, setSharingRequestId] = useState<string | null>(null);
 
   const notificationsQuery = useNotifications(filter === 'unread');
   const unreadQuery = useUnreadCount();
@@ -192,9 +194,22 @@ export default function NotificationsScreen() {
 
   const openNotification = (notification: Notification) => {
     setMissingAppointment(null);
+    setSharingRequestId(null);
 
     if (!notification.readAt) {
       markRead.mutate(notification.id);
+    }
+
+    if (notification.type === 'SHARING_REQUEST_RECEIVED') {
+      setSharingRequestId(notification.sharingRequestId);
+      return;
+    }
+
+    if (
+      notification.type === 'SHARING_REQUEST_ACCEPTED' ||
+      notification.type === 'SHARING_REQUEST_REJECTED'
+    ) {
+      return;
     }
 
     if (!notification.appointmentId) {
@@ -317,6 +332,13 @@ export default function NotificationsScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      {sharingRequestId ? (
+        <SharingRequestModal
+          onClose={() => setSharingRequestId(null)}
+          requestId={sharingRequestId}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

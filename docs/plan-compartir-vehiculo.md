@@ -326,8 +326,8 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | 3 | hecho | cc06ee3 |
 | 4 | hecho | 241d19f |
 | 5 | hecho | 26cf1b2 |
-| 6 | hecho | — |
-| 7 | pendiente | — |
+| 6 | hecho | 5ec08a8 |
+| 7 | hecho | — |
 | 8 | pendiente | — |
 
 Regla: cuando se empieza el paso N+1, se escribe aquí el SHA del commit del paso N (`git rev-parse --short HEAD`). El commit de este documento (`docs: plan de implementación de compartir vehículo`) no aparece en la tabla porque no es un paso. El prerrequisito de PostgreSQL (sección 3) tampoco es paso y no tiene commit.
@@ -342,7 +342,9 @@ Paso 4: el SHA se anotó al iniciar el paso 5 (`241d19f`). Entre ese commit y es
 
 Paso 5: el SHA se anotó al iniciar el paso 6 (`26cf1b2`).
 
-Paso 6: el SHA se anotará al iniciar el paso 7, según la misma regla.
+Paso 6: el SHA se anotó al iniciar el paso 7 (`5ec08a8`).
+
+Paso 7: el SHA se anotará al iniciar el paso 8, según la misma regla.
 
 ## 9. Cómo retomar en una sesión nueva
 

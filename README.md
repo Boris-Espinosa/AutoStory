@@ -19,7 +19,7 @@ El inicio de sesión se hace con Google o Apple mediante Clerk.
 - Notificaciones: listar, consultar cantidad de no leídas y marcar como leídas.
 - Recordatorios de citas: el backend procesa los vencimientos en un worker que se inicia con la API y aplica un cleanup periódico; los recordatorios pendientes se exponen en `/me/reminders` y la app móvil puede programar avisos locales con ellos.
 - Eliminación de cuenta, con preview de lo que se borrará y confirmación explícita.
-- Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guards que comprueban la pertenencia o la propiedad antes de permitir la acción. El rol `GUEST` está modelado, pero todavía no se puede asignar desde la app; depende de la función de compartir vehículos, aún no implementada.
+- Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guards que comprueban la pertenencia o la propiedad antes de permitir la acción. El DUEÑO puede enviar y cancelar solicitudes de compartir y revocar invitados desde el modal «Compartir vehículo»; el receptor acepta o rechaza desde su notificación, y el INVITADO puede abandonar el vehículo.
 - Inicio de sesión con Google o Apple a través de Clerk. En Expo Go, Apple no está disponible.
 
 ## Stack tecnológico
@@ -294,7 +294,7 @@ Frontend:
 
 ## Estado del proyecto
 
-La entidad y la tabla de solicitudes de compartir vehículo existen, pero no hay rutas en el backend ni pantallas en el frontend para crear o responder esas solicitudes. Por ahora la mantengo solo como modelo de datos.
+La función de compartir vehículos está implementada en backend y frontend: envío y cancelación de solicitudes, aceptación o rechazo desde la notificación, revocación de invitados y abandono del vehículo. Las migraciones que la soportan se aplican aparte, según el procedimiento del proyecto.
 
 ## Origen del proyecto
 

@@ -28,14 +28,14 @@
 ```
 backend/src/
 ├── app.ts  server.ts  app.test.ts
-├── routes/        vehicles, parts, appointments, notifications, me, workshops (.routes.ts)
-├── controllers/   vehicles, parts, appointments, notifications, me, workshops (.controller.ts) → solo handlers
+├── routes/        vehicles, parts, appointments, notifications, me, workshops, sharing-requests (.routes.ts)
+├── controllers/   vehicles, parts, appointments, notifications, me, workshops, sharing-requests (.controller.ts) → solo handlers
 ├── services/      vehicle-access, vehicles, vin-decoder (+test), appointments, maintenance,
 │                  parts (+test), notifications, reminders, account-deletion,
-│                  user-sync, user-adoption, workshop
+│                  user-sync, user-adoption, workshop, sharing-requests
 ├── middlewares/   auth.middleware.ts, vehicle-access.middleware.ts, photo-upload.ts
 ├── schemas/       vehicle (+test), part, maintenance, appointment, notification,
-│                  account-deletion, reminders, workshop
+│                  account-deletion, reminders, workshop, sharing-request
 ├── utils/         vin (+test), license-plate (+test), brands, part-cost, iso-date,
 │                  messages (+test)
 ├── jobs/          reminder-worker.ts, notify.ts
@@ -43,10 +43,12 @@ backend/src/
 ├── common/        async-handler, clock, error-handler, http-error, logger, validation-pipe
 ├── config/        env.ts, env.test.ts
 ├── db/            data-source.ts, run-migrations.ts
-├── entities/      10 entidades (sin cambios de contenido)
-├── migrations/    6 migraciones (sin cambios)
+├── entities/      10 entidades (SharingRequest y Notification adaptadas para compartir)
+├── migrations/    8 migraciones (6 iniciales + 2 de compartir)
 ├── storage/       storage.service.ts (+test)
-├── testing/       unit/ (9 *.test.ts), integration/ (12 *.integration.test.ts), setup-env.ts, test-data-source.ts, vin.ts
+├── testing/       unit/ (16 *.test.ts, incluye sharing-requests.service.test.ts),
+│                  integration/ (13 *.integration.test.ts, incluye sharing.integration.test.ts),
+│                  setup-env.ts, test-data-source.ts, vin.ts
 └── types/         express.d.ts
 ```
 

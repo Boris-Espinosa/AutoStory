@@ -10,6 +10,7 @@ export interface NotificationInput {
   vehicleId?: string | null;
   appointmentId?: string | null;
   reminderId?: string | null;
+  sharingRequestId?: string | null;
 }
 
 export interface CreateNotificationsOptions {

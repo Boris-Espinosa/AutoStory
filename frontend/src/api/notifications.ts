@@ -13,7 +13,10 @@ export type NotificationType =
   | 'APPOINTMENT_REMINDER'
   | 'APPOINTMENT_CREATED'
   | 'APPOINTMENT_RESCHEDULED'
-  | 'APPOINTMENT_CANCELLED';
+  | 'APPOINTMENT_CANCELLED'
+  | 'SHARING_REQUEST_RECEIVED'
+  | 'SHARING_REQUEST_ACCEPTED'
+  | 'SHARING_REQUEST_REJECTED';
 
 export interface Notification {
   id: string;
@@ -22,6 +25,7 @@ export interface Notification {
   body: string;
   vehicleId: string | null;
   appointmentId: string | null;
+  sharingRequestId: string | null;
   readAt: string | null;
   createdAt: string;
 }

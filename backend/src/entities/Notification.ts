@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Appointment } from './Appointment';
 import { AppointmentReminder } from './AppointmentReminder';
+import { SharingRequest } from './SharingRequest';
 import { User } from './User';
 import { Vehicle } from './Vehicle';
 
@@ -17,6 +18,9 @@ export enum NotificationType {
   APPOINTMENT_CREATED = 'APPOINTMENT_CREATED',
   APPOINTMENT_RESCHEDULED = 'APPOINTMENT_RESCHEDULED',
   APPOINTMENT_CANCELLED = 'APPOINTMENT_CANCELLED',
+  SHARING_REQUEST_RECEIVED = 'SHARING_REQUEST_RECEIVED',
+  SHARING_REQUEST_ACCEPTED = 'SHARING_REQUEST_ACCEPTED',
+  SHARING_REQUEST_REJECTED = 'SHARING_REQUEST_REJECTED',
 }
 
 @Entity({ name: 'notifications' })
@@ -54,6 +58,9 @@ export class Notification {
   @Column({ name: 'reminder_id', type: 'uuid', nullable: true })
   reminderId!: string | null;
 
+  @Column({ name: 'sharing_request_id', type: 'uuid', nullable: true })
+  sharingRequestId!: string | null;
+
   @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
   readAt!: Date | null;
 
@@ -75,4 +82,8 @@ export class Notification {
   @ManyToOne(() => AppointmentReminder, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reminder_id' })
   reminder!: AppointmentReminder | null;
+
+  @ManyToOne(() => SharingRequest, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'sharing_request_id' })
+  sharingRequest!: SharingRequest | null;
 }

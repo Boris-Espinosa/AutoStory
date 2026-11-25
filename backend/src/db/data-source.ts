@@ -18,6 +18,8 @@ import { MaintenanceModule1767225602000 } from '../migrations/1767225602000-Main
 import { AppointmentsModule1767225603000 } from '../migrations/1767225603000-AppointmentsModule';
 import { NotificationsWorker1767225604000 } from '../migrations/1767225604000-NotificationsWorker';
 import { UserClerkProfile1767225605000 } from '../migrations/1767225605000-UserClerkProfile';
+import { SharingEnums1767225606000 } from '../migrations/1767225606000-SharingEnums';
+import { SharingSupport1767225607000 } from '../migrations/1767225607000-SharingSupport';
 
 export const ENTITIES = [
   User,
@@ -39,6 +41,8 @@ export const MIGRATIONS = [
   AppointmentsModule1767225603000,
   NotificationsWorker1767225604000,
   UserClerkProfile1767225605000,
+  SharingEnums1767225606000,
+  SharingSupport1767225607000,
 ];
 
 export function buildDataSourceOptions(): DataSourceOptions {
@@ -53,6 +57,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
     type: 'postgres',
     // Los imports de src/migrations se compilan junto al resto a dist/migrations.
     migrations: MIGRATIONS,
+    migrationsTransactionMode: 'each',
     url: sslOptions.url,
     entities: ENTITIES,
     // Solo migraciones: sincronizar automáticamente puede perder datos.

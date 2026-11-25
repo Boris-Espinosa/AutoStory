@@ -12,6 +12,7 @@ export interface NotificationView {
   body: string;
   vehicleId: string | null;
   appointmentId: string | null;
+  sharingRequestId: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -33,6 +34,7 @@ function toView(notification: Notification): NotificationView {
     body: notification.body,
     vehicleId: notification.vehicleId,
     appointmentId: notification.appointmentId,
+    sharingRequestId: notification.sharingRequestId,
     readAt: notification.readAt?.toISOString() ?? null,
     createdAt: notification.createdAt.toISOString(),
   };

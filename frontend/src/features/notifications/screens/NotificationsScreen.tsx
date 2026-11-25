@@ -49,6 +49,9 @@ const TYPE_ICONS: Record<NotificationType, IconName> = {
   APPOINTMENT_CREATED: 'calendar-outline',
   APPOINTMENT_RESCHEDULED: 'refresh-outline',
   APPOINTMENT_CANCELLED: 'close-circle-outline',
+  SHARING_REQUEST_RECEIVED: 'person-add-outline',
+  SHARING_REQUEST_ACCEPTED: 'checkmark-circle-outline',
+  SHARING_REQUEST_REJECTED: 'close-circle-outline',
 };
 
 /** "hace 5 min", "hace 2 h", "ayer" o dd/mm/aaaa. */
@@ -138,7 +141,7 @@ function NotificationRow({
     >
       <Icon
         color={unread ? colors.primary : colors.textSecondary}
-        name={TYPE_ICONS[notification.type]}
+        name={TYPE_ICONS[notification.type] ?? 'notifications-outline'}
         size={22}
       />
 

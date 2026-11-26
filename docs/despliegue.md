@@ -143,7 +143,7 @@ ese escenario, pero sí al levantar varias réplicas.
 
 ### 2. Limitador de consultas VIN en memoria
 
-- **Ubicación:** `backend/src/routes/vehicles.routes.ts`, líneas 68-79
+- **Ubicación:** `backend/src/routes/vehicles.routes.ts`, líneas 79-90
   (`vinDecodeLimiter`, con `express-rate-limit` y su almacén en memoria por
   defecto), aplicado a la ruta `/vin/:vin/decode`.
 - **Problema:** cada proceso cuenta sus propias solicitudes; con N réplicas el límite

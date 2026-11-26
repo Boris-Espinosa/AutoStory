@@ -10,7 +10,7 @@ Flujo básico:
 7. El sistema crea la notificación SHARING_REQUEST_ACCEPTED o SHARING_REQUEST_REJECTED para el emisor y cierra el modal.
 Flujo alternativo:
 - Solicitud ajena: el sistema responde 404 y no muestra ningún dato del vehículo; las solicitudes no se pueden buscar ni listar fuera de la notificación.
-- Solicitud ya respondida o cancelada: responderla es un conflicto (409) y el sistema informa que ya no está pendiente.
+- Solicitud ya respondida: responderla es un conflicto (409) y el sistema informa "Ya respondiste esta solicitud.". Solicitud cancelada: el conflicto (409) informa "Esta solicitud ya no está disponible.".
 - Emisor sin nombre: el modal muestra "Un usuario de AutoStory" en lugar del nombre.
 - Cancelación del modal: el sistema lo cierra sin aceptar ni rechazar y la solicitud sigue PENDING.
 Poscondición: la solicitud queda ACCEPTED con la membresía INVITADO creada, o REJECTED, y el emisor recibe la notificación correspondiente.

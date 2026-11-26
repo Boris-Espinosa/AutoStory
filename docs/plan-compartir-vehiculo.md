@@ -118,8 +118,8 @@ frontend/
 **Hallazgos que el plan reporta y corrige explícitamente**
 
 1. `GET /notifications` no devuelve `sharingRequestId`; se añade en el paso 2 (cambio M), junto con la primera notificación de compartir.
-2. `backend/AGENTS.md` dice "10 entidades" pero hay 11 (`SharingRequest` ya existe); se corrige en el paso 8. También pasa de 6 a 7 migraciones tras el paso 1.
-3. `README.md` líneas 22 y 297 dicen que compartir "aún no está implementado"; se actualizan en el paso 8.
+2. El plan estimó 11 entidades y 7 migraciones; el recuento real es 10 entidades y 8 migraciones (6 iniciales + 2 de compartir). `backend/AGENTS.md` ya refleja esos valores.
+3. `README.md` líneas 22 y 297 decían que compartir "aún no está implementado"; ya están corregidas en el commit `2a09667`.
 4. No hay contradicción entre casos de uso y MER: ambos coinciden en estados, índice parcial, permisos y notificaciones.
 
 **Dudas marcadas**
@@ -177,7 +177,7 @@ npx jest --config jest.integration.config.js --listTests
 npm run test:integration
 ```
 
-Debe dar 12 suites. Si `TEST_DATABASE_URL` no está definida, es igual a `DATABASE_URL` o su nombre no contiene "test", `createTestDataSource()` falla por diseño: no cambiar esa validación.
+Debe dar 13 suites. Si `TEST_DATABASE_URL` no está definida, es igual a `DATABASE_URL` o su nombre no contiene "test", `createTestDataSource()` falla por diseño: no cambiar esa validación.
 
 **Regla de migración (paso 1):** no ejecutar `npm run migration:*` contra Neon. `1767225606000-SharingEnums.ts` declara `transaction = false` y contiene **solo** los `ALTER TYPE`; `1767225607000-SharingSupport.ts` es transaccional y contiene columna, FK e índice. El orden de registro en `MIGRATIONS` es enums → soporte; el `down` se ejecuta en orden inverso (primero soporte, luego enums).
 
@@ -207,7 +207,7 @@ Debe dar 12 suites. Si `TEST_DATABASE_URL` no está definida, es igual a `DATABA
 | `frontend/src/api/notifications.ts` | 5 | 3 valores en `NotificationType`, `sharingRequestId` en `Notification` |
 | `frontend/src/api/sharing.ts` | 5 | Nuevo: tipos, `sharingQueryKeys`, hooks de solicitudes/miembros y mutaciones con invalidación |
 | `frontend/src/features/notifications/screens/NotificationsScreen.tsx` | 5 y 7 | Paso 5: 3 entradas en `TYPE_ICONS` y respaldo `notifications-outline` para tipos desconocidos; paso 7: abrir el modal solo si el tipo es `SHARING_REQUEST_RECEIVED` (y hay `sharingRequestId`); `ACCEPTED`/`REJECTED` solo se marcan leídas |
-| `frontend/src/components/ShareVehicleModal.tsx` | 6 | Nuevo; campo email, pendientes e invitados, confirmación de revocar con `ConfirmModal` |
+| `frontend/src/components/ShareVehicleModal.tsx` | 6 | Nuevo; campo email, lista "Personas con acceso" con pendientes e invitados, confirmación de revocar en línea |
 | `frontend/src/features/vehicles/screens/VehicleDetailScreen.tsx` | 6 | Opción "Compartir vehículo" en el ⋮ de OWNER y "Abandonar vehículo" en el de GUEST, con `ConfirmModal` |
 | `frontend/src/features/notifications/components/SharingRequestModal.tsx` | 7 | Nuevo; detalle limitado, botones Aceptar/Rechazar; si la solicitud ya no está PENDING, muestra "Ya respondiste esta solicitud" |
 | `README.md` | 8 | Línea 22: GUEST ya asignable desde la app; línea 297: funcionalidad implementada |
@@ -225,7 +225,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 - Nota: si PostgreSQL es 12 o superior en Neon y en la BD de tests, evaluar una sola migración transaccional y NO cambiar `migrationsTransactionMode`; decidir tras el `SELECT version()`. El diseño de dos migraciones sigue siendo la alternativa documentada por defecto.
 - Impacto en datos existentes (pedido por `backend/AGENTS.md`): ninguna fila se borra ni se reescribe. Se añaden valores de enum, una columna nullable, una FK y un índice único parcial. Las solicitudes PENDING actuales (si las hay) pasan a estar protegidas por el índice; no se crean notificaciones nuevas. El `down` reconvierte `CANCELLED → REJECTED` y los 3 tipos nuevos a valores antiguos: **pérdida semántica irreversible**, documentada en la migración.
 - `down` de enums: renombrar el tipo, crear el tipo antiguo, `ALTER COLUMN ... USING CASE ... END::<tipo>`, ajustar default y borrar el tipo viejo. PostgreSQL no tiene `ALTER TYPE ... REMOVE VALUE`.
-- Verificación: V backend + `npx jest --config jest.integration.config.js --listTests` (12 suites) + `npm run test:integration` solo contra la BD de tests (lo ejecuta el usuario). Comprobar que la migración de enums se aplica fuera de transacción y que la de soporte se registra después. **No ejecutar migraciones en Neon.**
+- Verificación: V backend + `npx jest --config jest.integration.config.js --listTests` (13 suites) + `npm run test:integration` solo contra la BD de tests (lo ejecuta el usuario). Comprobar que la migración de enums se aplica fuera de transacción y que la de soporte se registra después. **No ejecutar migraciones en Neon.**
 - Commit: `feat(paso 1): preparar base de datos para compartir vehículo`
 
 ### Paso 2 — DUEÑO: enviar, listar y cancelar
@@ -263,7 +263,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 ### Paso 6 — modales del DUEÑO y del INVITADO
 
 - Archivos: `frontend/src/components/ShareVehicleModal.tsx`, `frontend/src/features/vehicles/screens/VehicleDetailScreen.tsx`.
-- Cambios: el ⋮ de OWNER gana "Compartir vehículo"; el de GUEST gana "Abandonar vehículo" con `ConfirmModal` (mensaje "¿Abandonar vehículo?"). El modal de compartir reúne campo email, pendientes con "Cancelar solicitud", invitados con "Revocar acceso" (confirmación con `ConfirmModal`) y el botón "Cerrar". En el envío muestra "Solicitud enviada." en verde y el mensaje de la API como error si no hay cuenta.
+- Cambios: el ⋮ de OWNER gana "Compartir vehículo"; el de GUEST gana "Abandonar vehículo" con `ConfirmModal` (mensaje "¿Abandonar vehículo?"). El modal de compartir reúne campo email y una única lista "Personas con acceso" con pendientes ("Cancelar") e invitados ("Revocar", confirmación en línea con "Sí, revocar"/"No"), además del botón "Cerrar" en el pie. En el envío muestra "Solicitud enviada." en verde y el mensaje de la API como error si no hay cuenta.
 - Verificación: V frontend + prueba manual en web y móvil de que el OWNER ve compartir pero no abandonar, el GUEST ve abandonar pero no compartir, y que cancelar un modal no muta nada.
 - Commit: `feat(paso 6): modales para compartir, revocar y abandonar`
 
@@ -328,7 +328,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | 5 | hecho | 26cf1b2 |
 | 6 | hecho | 5ec08a8 |
 | 7 | hecho | 6aab001 |
-| 8 | hecho | — |
+| 8 | hecho | 2a09667 |
 
 Regla: cuando se empieza el paso N+1, se escribe aquí el SHA del commit del paso N (`git rev-parse --short HEAD`). El commit de este documento (`docs: plan de implementación de compartir vehículo`) no aparece en la tabla porque no es un paso. El prerrequisito de PostgreSQL (sección 3) tampoco es paso y no tiene commit.
 
@@ -346,7 +346,7 @@ Paso 6: el SHA se anotó al iniciar el paso 7 (`5ec08a8`).
 
 Paso 7: el SHA se anotó al iniciar el paso 8 (`6aab001`).
 
-Paso 8: cierre y documentación. El SHA de este commit queda registrado en `git log`; no puede anotarse dentro de él. El recuento real es 10 entidades y 8 migraciones (el plan estimó 11 y 7), con 16 suites unitarias y 13 de integración.
+Paso 8: cierre y documentación. El SHA del commit es `2a09667` (`docs(paso 8): actualizar documentación de compartir vehículo`). El recuento real es 10 entidades y 8 migraciones (el plan estimó 11 y 7), con 16 suites unitarias y 13 de integración.
 
 ## 9. Cómo retomar en una sesión nueva
 

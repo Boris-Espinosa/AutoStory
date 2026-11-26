@@ -19,31 +19,31 @@ El inicio de sesión se hace con Google o Apple mediante Clerk.
 - Notificaciones: listar, consultar cantidad de no leídas y marcar como leídas.
 - Recordatorios de citas: el backend procesa los vencimientos en un worker que se inicia con la API y aplica un cleanup periódico; los recordatorios pendientes se exponen en `/me/reminders` y la app móvil puede programar avisos locales con ellos.
 - Eliminación de cuenta, con preview de lo que se borrará y confirmación explícita.
-- Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guards que comprueban la pertenencia o la propiedad antes de permitir la acción. El DUEÑO puede enviar y cancelar solicitudes de compartir y revocar invitados desde el modal «Compartir vehículo»; el receptor acepta o rechaza desde su notificación, y el INVITADO puede abandonar el vehículo.
+- Acceso a vehículos por membresía: roles `OWNER` y `GUEST`, con guards que comprueban la pertenencia o la propiedad antes de permitir la acción. El DUEÑO puede enviar y cancelar solicitudes de compartir y revocar invitados desde el modal «Compartir vehículo»; el receptor acepta o rechaza desde su notificación, y el INVITADO puede abandonar el vehículo. El DUEÑO no puede salir ni ser revocado.
 - Inicio de sesión con Google o Apple a través de Clerk. En Expo Go, Apple no está disponible.
 
 ## Stack tecnológico
 
-| Capa             | Tecnología                                                                   | Uso                                       |
-| ---------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
-| Backend          | Node.js `>=22`                                                               | Entorno de ejecución de la API            |
-| Backend          | Express `^4.21.2`                                                            | Servidor HTTP y rutas                     |
-| Backend          | TypeScript `^5.7.3`                                                          | Lenguaje del backend                      |
-| Backend          | PostgreSQL (driver `pg` `^8.13.1`)                                           | Base de datos                             |
-| Backend          | TypeORM `^0.3.20`                                                            | Entidades, repositorios y migraciones     |
-| Backend          | zod `^4.6.7`                                                                 | Validación de entrada y configuración     |
-| Backend          | `@clerk/express` `^2.1.88`, `@clerk/backend` `^3.27.0`                       | Autenticación y cuenta de Clerk           |
-| Backend          | `@aws-sdk/client-s3` `^3.1168.0`, `@aws-sdk/s3-request-presigner` `3.1168.0` | Almacenamiento y firma de URLs de fotos   |
-| Backend          | `multer` `^2.5.0`, `express-rate-limit` `^8.7.3`                             | Subida de fotos y límite de consultas VIN |
-| Backend          | Jest `^29.7.0`                                                               | Pruebas unitarias y de integración        |
-| Frontend         | Expo `~58.0.25`, expo-router `~58.0.31`                                      | App móvil y web, rutas                    |
-| Frontend         | React `19.3.0`, React Native `0.88.1`, react-native-web `^0.21.4`            | Interfaz móvil y web                      |
-| Frontend         | `@clerk/expo` `^4.15.1`                                                      | Inicio de sesión y token de sesión        |
-| Frontend         | `@tanstack/react-query` `^5.105.3`                                           | Consultas a la API                        |
-| Frontend         | `expo-notifications` `~58.1.9`                                               | Recordatorios locales en móvil            |
-| Frontend         | zod `^4.6.7`                                                                 | Validación de formularios                 |
-| Frontend         | TypeScript `~6.0.3`, ESLint `^9.0.0`                                         | Tipos y lint                              |
-| Servicio externo | API de decodificación VIN de NHTSA                                           | Datos de marca, modelo y año desde el VIN |
+| Capa             | Tecnología                                                                   | Uso                                           |
+| ---------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
+| Backend          | Node.js `>=22`                                                               | Entorno de ejecución de la API                |
+| Backend          | Express `^4.21.2`                                                            | Servidor HTTP y rutas                         |
+| Backend          | TypeScript `^5.7.3`                                                          | Lenguaje del backend                          |
+| Backend          | PostgreSQL (driver `pg` `^8.13.1`)                                           | Base de datos                                 |
+| Backend          | TypeORM `^0.3.20`                                                            | Entidades, repositorios y migraciones         |
+| Backend          | zod `^4.6.7`                                                                 | Validación de entrada y configuración         |
+| Backend          | `@clerk/express` `^2.1.88`, `@clerk/backend` `^3.27.0`                       | Autenticación y cuenta de Clerk               |
+| Backend          | `@aws-sdk/client-s3` `^3.1168.0`, `@aws-sdk/s3-request-presigner` `3.1168.0` | Almacenamiento y firma de URLs de fotos       |
+| Backend          | `multer` `^2.5.0`, `express-rate-limit` `^8.7.3`                             | Subida de fotos, límites de VIN y solicitudes |
+| Backend          | Jest `^29.7.0`                                                               | Pruebas unitarias y de integración            |
+| Frontend         | Expo `~58.0.25`, expo-router `~58.0.31`                                      | App móvil y web, rutas                        |
+| Frontend         | React `19.3.0`, React Native `0.88.1`, react-native-web `^0.21.4`            | Interfaz móvil y web                          |
+| Frontend         | `@clerk/expo` `^4.15.1`                                                      | Inicio de sesión y token de sesión            |
+| Frontend         | `@tanstack/react-query` `^5.105.3`                                           | Consultas a la API                            |
+| Frontend         | `expo-notifications` `~58.1.9`                                               | Recordatorios locales en móvil                |
+| Frontend         | zod `^4.6.7`                                                                 | Validación de formularios                     |
+| Frontend         | TypeScript `~6.0.3`, ESLint `^9.0.0`                                         | Tipos y lint                                  |
+| Servicio externo | API de decodificación VIN de NHTSA                                           | Datos de marca, modelo y año desde el VIN     |
 
 La versión de Node proviene del campo `engines` del backend. El proyecto no fija una versión del servidor de PostgreSQL.
 
@@ -51,7 +51,7 @@ La versión de Node proviene del campo `engines` del backend. El proyecto no fij
 
 ```mermaid
 flowchart LR
-    A[Frontend Expo: móvil y web] -->|HTTP /vehicles, /parts, /workshops, /appointments, /notifications, /me| B[API Express + TypeScript]
+    A[Frontend Expo: móvil y web] -->|HTTP /vehicles, /sharing-requests, /parts, /workshops, /appointments, /notifications, /me| B[API Express + TypeScript]
     B --> C[(PostgreSQL)]
     B --> D[Clerk]
     B --> E[Almacenamiento S3 / R2]
@@ -193,8 +193,8 @@ Los ejemplos son ficticios. Nunca pongas secretos en `EXPO_PUBLIC_*` ni en el re
 | `CLERK_PUBLISHABLE_KEY`            | Middleware de Clerk                     | Clave pública de Clerk                                                                         | Sí si `AUTH_MODE=clerk`                                  |
 | `CLERK_SECRET_KEY`                 | Middleware de Clerk y borrado de cuenta | Clave secreta de Clerk                                                                         | Sí si `AUTH_MODE=clerk`                                  |
 | `CLERK_AUTHORIZED_PARTIES`         | Middleware de Clerk                     | Orígenes autorizados, separados por comas                                                      | No                                                       |
-| `REMINDER_WORKER_ENABLED`          | Reminder worker                         | Activa o desactiva el loop (`true`/`false`)                                                   | No (default `true`)                                      |
-| `REMINDER_WORKER_INTERVAL_SECONDS` | Reminder worker                         | Intervalo del loop en segundos                                                                | No (default `60`)                                        |
+| `REMINDER_WORKER_ENABLED`          | Reminder worker                         | Activa o desactiva el loop (`true`/`false`)                                                    | No (default `true`)                                      |
+| `REMINDER_WORKER_INTERVAL_SECONDS` | Reminder worker                         | Intervalo del loop en segundos                                                                 | No (default `60`)                                        |
 | `UPLOADS_DIR`                      | Servicio de almacenamiento              | Carpeta local de fotos en desarrollo/tests                                                     | No (default `backend/uploads`)                           |
 | `STORAGE_DRIVER`                   | Servicio de almacenamiento              | `disk` o `s3`; `s3` es obligatorio en producción                                               | No (default `disk`)                                      |
 | `S3_ENDPOINT`                      | Cliente S3                              | Endpoint del bucket                                                                            | Sí con `STORAGE_DRIVER=s3` en producción                 |
@@ -262,8 +262,8 @@ Frontend (ejecutar dentro de `frontend/`):
 
 Backend:
 
-- `npm test` ejecuta los archivos `*.test.ts`, excluyendo los de integración. El entorno de pruebas fija `AUTH_MODE=dev-header` y `STORAGE_DRIVER=disk`.
-- `npm run test:integration` ejecuta los archivos `*.integration.test.ts` y, por tanto, necesita PostgreSQL: exige `TEST_DATABASE_URL`, distinta de `DATABASE_URL` y con `test` en el nombre de la base. El DataSource de tests usa `dropSchema: true` y `migrationsRun: true`, así que recrea el schema desde las migraciones. **No apuntes esta variable a una base de datos con datos reales.**
+- `npm test` ejecuta los archivos `*.test.ts`, excluyendo los de integración. El entorno de pruebas fija `AUTH_MODE=dev-header` y `STORAGE_DRIVER=disk`. Hoy son 16 suites y 182 tests, todos en verde.
+- `npm run test:integration` ejecuta los archivos `*.integration.test.ts` y, por tanto, necesita PostgreSQL: exige `TEST_DATABASE_URL`, distinta de `DATABASE_URL` y con `test` en el nombre de la base. El DataSource de tests usa `dropSchema: true` y `migrationsRun: true`, así que recrea el schema desde las migraciones. Hay 13 suites y 203 tests.
 
 Frontend:
 
@@ -291,10 +291,6 @@ Frontend:
 - Con el driver `s3`, las fotos se guardan en un bucket privado y se entregan mediante signed URLs de lectura. No hay URL pública del bucket.
 - El schema de la base de datos se gestiona solo con migraciones (`synchronize: false`).
 - Las claves S3 y `CLERK_SECRET_KEY` se mantienen en el backend; `EXPO_PUBLIC_*` solo contiene valores públicos.
-
-## Estado del proyecto
-
-La función de compartir vehículos está implementada en backend y frontend: envío y cancelación de solicitudes, aceptación o rechazo desde la notificación, revocación de invitados y abandono del vehículo. Las migraciones que la soportan se aplican aparte, según el procedimiento del proyecto.
 
 ## Origen del proyecto
 

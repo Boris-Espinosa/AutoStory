@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,12 +21,14 @@ import {
   useSendSharingRequest,
   useSharingMembers,
 } from '../api/sharing';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import { MessageBanner } from './MessageBanner';
 import { TextField } from './TextField';
+import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
-import { ConfirmModal } from './ui/ConfirmModal';
 import { IconButton } from './ui/IconButton';
+import { ListRow } from './ui/ListRow';
 import {
   colors,
   fontSizes,
@@ -60,6 +63,7 @@ export function ShareVehicleModal({
   const cancelMutation = useCancelSharingRequest();
   const revokeMutation = useRevokeSharingMember();
   const { height: windowHeight } = useWindowDimensions();
+  const { isWide } = useBreakpoint();
 
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -76,13 +80,13 @@ export function ShareVehicleModal({
     pendingQuery.isError || membersQuery.isError
       ? 'No se pudo cargar la información de compartir.'
       : null;
+  const mutationPending =
+    sendMutation.isPending ||
+    cancelMutation.isPending ||
+    revokeMutation.isPending;
 
   const close = () => {
-    if (
-      sendMutation.isPending ||
-      cancelMutation.isPending ||
-      revokeMutation.isPending
-    ) {
+    if (mutationPending) {
       return;
     }
 
@@ -146,136 +150,261 @@ export function ShareVehicleModal({
     }
   };
 
-  return (
+  const inviteForm = (
     <>
-      <Modal
-        animationType="fade"
-        onRequestClose={close}
-        transparent
-        visible={visible}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.backdrop}
-        >
-          <View style={[styles.card, { maxHeight: windowHeight * 0.85 }]}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Compartir vehículo</Text>
-              <IconButton
-                accessibilityLabel="Cerrar"
-                icon="close"
-                onPress={close}
-              />
-            </View>
+      <Text style={styles.sectionTitle}>Invitar a alguien</Text>
 
-            <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              style={styles.body}
-            >
-              <TextField
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={emailError ?? undefined}
-                keyboardType="email-address"
-                label="Correo electrónico"
-                maxLength={254}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  setEmailError(null);
-                  setError(null);
-                }}
-                placeholder="correo@ejemplo.cl"
-                value={email}
-              />
-
-              <Button
-                label="Enviar solicitud"
-                loading={sendMutation.isPending}
-                onPress={() => void send()}
-              />
-
-              <MessageBanner message={notice} tone="success" />
-              <MessageBanner message={loadError ?? error} tone="error" />
-
-              <Text style={styles.sectionTitle}>Solicitudes pendientes</Text>
-
-              {pendingQuery.isLoading ? <ActivityIndicator /> : null}
-
-              {!pendingQuery.isLoading && pending.length === 0 ? (
-                <Text style={styles.empty}>No hay solicitudes pendientes.</Text>
-              ) : null}
-
-              {pending.map((item) => (
-                <Card key={item.id} style={styles.row}>
-                  <View style={styles.rowInfo}>
-                    <Text style={styles.rowTitle}>{item.receiverEmail}</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Enviada el {formatDisplayDate(item.sentAt, timezone)}
-                    </Text>
-                  </View>
-                  <Button
-                    disabled={cancelMutation.isPending}
-                    label="Cancelar solicitud"
-                    onPress={() => void cancel(item.id)}
-                    variant="secondary"
-                  />
-                </Card>
-              ))}
-
-              <Text style={styles.sectionTitle}>Invitados</Text>
-
-              {membersQuery.isLoading ? <ActivityIndicator /> : null}
-
-              {!membersQuery.isLoading && members.length === 0 ? (
-                <Text style={styles.empty}>No hay invitados.</Text>
-              ) : null}
-
-              {members.map((member) => (
-                <Card key={member.userId} style={styles.row}>
-                  <View style={styles.rowInfo}>
-                    <Text style={styles.rowTitle}>{member.email}</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Desde el {formatDisplayDate(member.assignedAt, timezone)}
-                    </Text>
-                  </View>
-                  <Button
-                    label="Revocar acceso"
-                    onPress={() => {
-                      setRevokeError(null);
-                      setRevokeTarget(member);
-                    }}
-                    variant="danger"
-                  />
-                </Card>
-              ))}
-            </ScrollView>
-
-            <View style={styles.footer}>
-              <Button label="Cerrar" onPress={close} variant="secondary" />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      <ConfirmModal
-        confirmLabel="Revocar acceso"
-        error={revokeError}
-        loading={revokeMutation.isPending}
-        message={`¿Revocar el acceso de ${revokeTarget?.email ?? ''}?`}
-        onCancel={() => {
-          if (revokeMutation.isPending) {
-            return;
-          }
-
-          setRevokeError(null);
-          setRevokeTarget(null);
+      <TextField
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!mutationPending}
+        error={emailError ?? undefined}
+        keyboardType="email-address"
+        label="Correo electrónico"
+        maxLength={254}
+        onChangeText={(text) => {
+          setEmail(text);
+          setEmailError(null);
+          setError(null);
+          setNotice(null);
         }}
-        onConfirm={() => void revoke()}
-        title="Revocar acceso"
-        visible={revokeTarget !== null}
+        onSubmitEditing={() => void send()}
+        placeholder="correo@ejemplo.cl"
+        value={email}
       />
+
+      <Button
+        disabled={mutationPending}
+        label="Enviar solicitud"
+        loading={sendMutation.isPending}
+        onPress={() => void send()}
+      />
+
+      <Text style={styles.helpText}>
+        La persona recibirá una notificación y deberá aceptar. Hasta entonces
+        solo verá marca, modelo y año.
+      </Text>
+
+      <MessageBanner message={notice} tone="success" />
+      <MessageBanner message={loadError ?? error} tone="error" />
     </>
+  );
+
+  const peopleList = (
+    <>
+      <Text style={styles.sectionTitle}>
+        Personas con acceso ({pending.length + members.length})
+      </Text>
+
+      {pendingQuery.isLoading || membersQuery.isLoading ? (
+        <ActivityIndicator />
+      ) : null}
+
+      {!pendingQuery.isLoading &&
+      !membersQuery.isLoading &&
+      !loadError &&
+      pending.length === 0 &&
+      members.length === 0 ? (
+        <Text style={styles.empty}>
+          Aún no compartiste este vehículo con nadie.
+        </Text>
+      ) : null}
+
+      {pending.map((item) => (
+        <Card key={item.id} style={styles.row}>
+          <ListRow
+            badge={
+              <View style={styles.subtitleLine}>
+                <Text numberOfLines={1} style={styles.subtitleText}>
+                  {`Enviada el ${formatDisplayDate(item.sentAt, timezone)}`}
+                </Text>
+                <Badge
+                  label="Pendiente"
+                  style={styles.inlineBadge}
+                  tone="info"
+                />
+              </View>
+            }
+            title={item.receiverEmail}
+            trailing={
+              <Pressable
+                accessibilityRole="button"
+                disabled={mutationPending}
+                onPress={() => void cancel(item.id)}
+                style={({ pressed }) => [
+                  styles.compactButton,
+                  styles.cancelButton,
+                  pressed && !mutationPending && styles.pressed,
+                  mutationPending && styles.disabled,
+                ]}
+              >
+                <Text style={[styles.compactLabel, styles.cancelLabel]}>
+                  Cancelar
+                </Text>
+              </Pressable>
+            }
+          />
+        </Card>
+      ))}
+
+      {members.map((member) =>
+        revokeTarget?.userId === member.userId ? (
+          <Card key={member.userId} style={styles.row}>
+            <View style={styles.confirm}>
+              <Text style={styles.confirmText}>
+                ¿Quitar el acceso a {member.email}?
+              </Text>
+              <MessageBanner message={revokeError} tone="error" />
+              <View style={styles.confirmActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={mutationPending}
+                  onPress={() => void revoke()}
+                  style={({ pressed }) => [
+                    styles.compactButton,
+                    styles.confirmButton,
+                    pressed && !mutationPending && styles.pressed,
+                    mutationPending && styles.disabled,
+                  ]}
+                >
+                  <Text style={[styles.compactLabel, styles.confirmLabel]}>
+                    Sí, revocar
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={mutationPending}
+                  onPress={() => {
+                    setRevokeError(null);
+                    setRevokeTarget(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.compactButton,
+                    styles.cancelButton,
+                    pressed && !mutationPending && styles.pressed,
+                    mutationPending && styles.disabled,
+                  ]}
+                >
+                  <Text style={[styles.compactLabel, styles.cancelLabel]}>
+                    No
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </Card>
+        ) : (
+          <Card key={member.userId} style={styles.row}>
+            <ListRow
+              badge={
+                <View style={styles.subtitleLine}>
+                  <Text numberOfLines={1} style={styles.subtitleText}>
+                    {`Desde el ${formatDisplayDate(member.assignedAt, timezone)}`}
+                  </Text>
+                  <Badge
+                    label="Invitado"
+                    style={styles.inlineBadge}
+                    tone="neutral"
+                  />
+                </View>
+              }
+              title={member.email}
+              trailing={
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={mutationPending}
+                  onPress={() => {
+                    setRevokeError(null);
+                    setRevokeTarget(member);
+                  }}
+                  style={({ pressed }) => [
+                    styles.compactButton,
+                    styles.revokeButton,
+                    pressed && !mutationPending && styles.pressed,
+                    mutationPending && styles.disabled,
+                  ]}
+                >
+                  <Text style={[styles.compactLabel, styles.revokeLabel]}>
+                    Revocar
+                  </Text>
+                </Pressable>
+              }
+            />
+          </Card>
+        ),
+      )}
+    </>
+  );
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={close}
+      transparent
+      visible={visible}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.backdrop}
+      >
+        <View
+          style={[
+            styles.card,
+            isWide && styles.cardWide,
+            { maxHeight: windowHeight * 0.85 },
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Compartir vehículo</Text>
+            <IconButton
+              accessibilityLabel="Cerrar"
+              disabled={mutationPending}
+              icon="close"
+              onPress={close}
+            />
+          </View>
+
+          <View style={[styles.body, isWide && styles.bodyWide]}>
+            {isWide ? (
+              <>
+                <ScrollView
+                  contentContainerStyle={styles.columnContent}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.column}
+                >
+                  {inviteForm}
+                </ScrollView>
+                <ScrollView
+                  contentContainerStyle={styles.columnContent}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.column}
+                >
+                  {peopleList}
+                </ScrollView>
+              </>
+            ) : (
+              <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                style={styles.column}
+              >
+                {inviteForm}
+                {peopleList}
+              </ScrollView>
+            )}
+          </View>
+
+          <View style={styles.footer}>
+            <Button
+              disabled={mutationPending}
+              label="Cerrar"
+              onPress={close}
+              style={styles.footerButton}
+              variant="secondary"
+            />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -296,6 +425,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
   },
+  cardWide: {
+    maxWidth: layout.detailMaxWidth,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -307,14 +439,37 @@ const styles = StyleSheet.create({
   body: {
     flexShrink: 1,
   },
+  bodyWide: {
+    flexDirection: 'row',
+    gap: spacing.xl,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  column: {
+    flex: 1,
+  },
+  columnContent: {
+    gap: spacing.md,
+  },
   content: {
     gap: spacing.md,
     paddingBottom: spacing.md,
     paddingHorizontal: spacing.xl,
   },
   footer: {
+    alignItems: 'flex-end',
+    borderTopColor: colors.border,
+    borderTopWidth: layout.borderWidth,
+    justifyContent: 'flex-end',
+    marginTop: spacing.sm,
     paddingBottom: spacing.xl,
     paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  footerButton: {
+    minWidth: layout.buttonMinWidth,
+    paddingHorizontal: spacing.lg,
   },
   title: {
     ...typography.title,
@@ -328,18 +483,77 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  helpText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  subtitleLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  subtitleText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  inlineBadge: {
+    alignSelf: 'center',
+  },
   row: {
     gap: spacing.sm,
   },
-  rowInfo: {
-    gap: spacing.xxs,
+  compactButton: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: layout.borderWidth,
+    justifyContent: 'center',
+    minHeight: layout.touchTarget,
+    // parejo para Cancelar/Revocar sin quitarle espacio al correo en móvil
+    minWidth: 96,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  rowTitle: {
+  cancelButton: {
+    borderColor: colors.primary,
+  },
+  revokeButton: {
+    borderColor: colors.danger,
+  },
+  confirmButton: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  compactLabel: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+  },
+  cancelLabel: {
+    color: colors.primary,
+  },
+  revokeLabel: {
+    color: colors.danger,
+  },
+  confirmLabel: {
+    color: colors.primaryText,
+  },
+  confirm: {
+    gap: spacing.md,
+  },
+  confirmText: {
     ...typography.body,
     color: colors.textPrimary,
   },
-  rowSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  confirmActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'flex-end',
   },
 });

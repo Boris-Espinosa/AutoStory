@@ -89,8 +89,10 @@ export function appointmentNotificationBody(
   return Array.from(body).slice(0, 300).join('');
 }
 
-export const SHARING_NEUTRAL_MESSAGE =
-  'Si la persona tiene cuenta en AutoStory, recibirá la solicitud.';
+export const SHARING_REQUEST_SENT_MESSAGE = 'Solicitud enviada.';
+
+export const SHARING_ACCOUNT_NOT_FOUND_MESSAGE =
+  'No encontramos una cuenta de AutoStory con ese correo. Pídele que se registre y vuelve a enviar la solicitud.';
 
 export const SHARING_REQUEST_RECEIVED_TITLE =
   'Solicitud de compartir vehículo';

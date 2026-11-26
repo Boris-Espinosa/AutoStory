@@ -9,6 +9,7 @@ import { User } from '../entities/User';
 import { UserVehicle, UserVehicleRole } from '../entities/UserVehicle';
 import { createNotifications } from '../jobs/notify';
 import {
+  SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
   sharingDisplayName,
   sharingRequestAcceptedBody,
   sharingRequestReceivedBody,
@@ -113,9 +114,9 @@ export class SharingRequestsService {
           [email],
         );
 
-        // R33: 0 o más de una coincidencia dan la misma respuesta 202.
+        // R33: sin una cuenta única no se crea nada y se informa el motivo.
         if (matches.length !== 1) {
-          return;
+          throw new HttpError(400, SHARING_ACCOUNT_NOT_FOUND_MESSAGE);
         }
 
         const receiverId = matches[0].id;

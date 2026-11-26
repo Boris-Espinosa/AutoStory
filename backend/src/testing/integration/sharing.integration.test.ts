@@ -11,7 +11,10 @@ import {
 import { User } from '../../entities/User';
 import { UserVehicle, UserVehicleRole } from '../../entities/UserVehicle';
 import { Vehicle } from '../../entities/Vehicle';
-import { SHARING_NEUTRAL_MESSAGE } from '../../utils/messages';
+import {
+  SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
+  SHARING_REQUEST_SENT_MESSAGE,
+} from '../../utils/messages';
 import { createTestDataSource } from '../test-data-source';
 
 let dataSource: DataSource;
@@ -218,7 +221,7 @@ describe('base de datos de compartir vehículo', () => {
 });
 
 describe('API del dueño para compartir vehículo', () => {
-  it('responde 202 neutral y crea la notificación con sharingRequestId', async () => {
+  it('responde 202 con Solicitud enviada. y crea la notificación con mayúsculas distintas', async () => {
     const vehicle = await seedVehicleWithOwner();
 
     const response = await api(
@@ -228,7 +231,7 @@ describe('API del dueño para compartir vehículo', () => {
     );
 
     expect(response.status).toBe(202);
-    expect(response.body).toEqual({ message: SHARING_NEUTRAL_MESSAGE });
+    expect(response.body).toEqual({ message: SHARING_REQUEST_SENT_MESSAGE });
 
     const [request] = await sharingRequests.find();
     expect(request).toMatchObject({
@@ -244,7 +247,7 @@ describe('API del dueño para compartir vehículo', () => {
     expect(notification?.sharingRequestId).toBe(request.id);
   });
 
-  it('no crea nada cuando el correo no existe', async () => {
+  it('responde 400 y no crea nada cuando el correo no existe', async () => {
     const vehicle = await seedVehicleWithOwner();
 
     const response = await api(
@@ -253,8 +256,10 @@ describe('API del dueño para compartir vehículo', () => {
       { userId: 'user-1', body: { email: 'nadie@example.com' } },
     );
 
-    expect(response.status).toBe(202);
-    expect(response.body).toEqual({ message: SHARING_NEUTRAL_MESSAGE });
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
+    });
     await expect(sharingRequests.count()).resolves.toBe(0);
     await expect(notifications.count()).resolves.toBe(0);
   });

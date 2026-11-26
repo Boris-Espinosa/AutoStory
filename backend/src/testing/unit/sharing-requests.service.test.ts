@@ -12,6 +12,7 @@ import {
   sharingRequestAcceptedBody,
   sharingRequestReceivedBody,
   sharingRequestRejectedBody,
+  SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
   SHARING_REQUEST_ACCEPTED_TITLE,
   SHARING_REQUEST_RECEIVED_TITLE,
   SHARING_REQUEST_REJECTED_TITLE,
@@ -119,8 +120,12 @@ describe('SharingRequestsService.send', () => {
     const { service, manager } = buildService();
     mockReceiverLookup(manager, []);
 
-    await service.send(SENDER_ID, VEHICLE_ID, 'nadie@example.com');
-
+    await expect(
+      service.send(SENDER_ID, VEHICLE_ID, 'nadie@example.com'),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
+    });
     expect(manager.save).not.toHaveBeenCalled();
     expect(createNotifications).not.toHaveBeenCalled();
   });
@@ -129,8 +134,12 @@ describe('SharingRequestsService.send', () => {
     const { service, manager } = buildService();
     mockReceiverLookup(manager, [{ id: RECEIVER_ID }, { id: 'user-3' }]);
 
-    await service.send(SENDER_ID, VEHICLE_ID, 'duplicado@example.com');
-
+    await expect(
+      service.send(SENDER_ID, VEHICLE_ID, 'duplicado@example.com'),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: SHARING_ACCOUNT_NOT_FOUND_MESSAGE,
+    });
     expect(manager.save).not.toHaveBeenCalled();
     expect(createNotifications).not.toHaveBeenCalled();
   });

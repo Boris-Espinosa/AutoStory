@@ -7,7 +7,7 @@ import {
   uuidParamSchema,
 } from '../schemas/sharing-request.schema';
 import { SharingRequestsService } from '../services/sharing-requests.service';
-import { SHARING_NEUTRAL_MESSAGE } from '../utils/messages';
+import { SHARING_REQUEST_SENT_MESSAGE } from '../utils/messages';
 
 function requestIdFrom(req: Request): string {
   const parsed = uuidParamSchema.safeParse(req.params.requestId);
@@ -39,7 +39,7 @@ export function sendSharingRequest(
       (req.body as SendSharingRequestInput).email,
     );
 
-    res.status(202).json({ message: SHARING_NEUTRAL_MESSAGE });
+    res.status(202).json({ message: SHARING_REQUEST_SENT_MESSAGE });
   };
 }
 

@@ -23,7 +23,7 @@ Fuentes de verdad usadas: `docs/caso-de-uso-compartir-vehiculo.md`, `docs/caso-d
 
 | Regla | Implementación |
 | --- | --- |
-| R33 | Búsqueda por email exacto sin distinguir mayúsculas ni espacios de borde; si no existe o no tiene email, no se crea nada y se devuelve el mismo mensaje neutral. |
+| R33 | Búsqueda por email sin distinguir mayúsculas ni espacios de borde; si no hay exactamente una coincidencia, no se crea nada y se responde 400 con el mensaje de cuenta no encontrada. |
 | R34 | No enviar a uno mismo ni a miembro; máximo una PENDING por (vehículo, receptor) con índice único parcial; tope 10 PENDING por vehículo y 10 envíos/minuto por usuario. |
 | R35 | Detalle limitado a marca, modelo, año y nombre del emisor; ajena → 404. |
 | R36 | Aceptar en la misma transacción cambia el estado y crea el INVITADO; rechazar solo cambia el estado; responder algo que no es PENDING → 409; sin expiración automática. |
@@ -35,7 +35,7 @@ Fuentes de verdad usadas: `docs/caso-de-uso-compartir-vehiculo.md`, `docs/caso-d
 
 | # | Método y ruta | Guard | Entrada | Respuesta | Errores |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `POST /vehicles/:vehicleId/sharing-requests` | `auth` + `owner` | body `{ email }` (zod: string, trim, formato email, máx. 254) | `202 { message: "Si la persona tiene cuenta en AutoStory, recibirá la solicitud." }`, creada o no | 400 email inválido; 403/404 permisos; 409 uno mismo / ya miembro / PENDING previa / tope de 10; 429 tope de envíos |
+| 1 | `POST /vehicles/:vehicleId/sharing-requests` | `auth` + `owner` | body `{ email }` (zod: string, trim, formato email, máx. 254) | `202 { message: "Solicitud enviada." }` | 400 email inválido o cuenta no encontrada; 403/404 permisos; 409 uno mismo / ya miembro / PENDING previa / tope de 10; 429 tope de envíos |
 | 2 | `GET /vehicles/:vehicleId/sharing-requests` | `auth` + `owner` | solo `:vehicleId` | `200 { items: [{ id, receiverEmail, sentAt, status: "PENDING" }] }` | 403/404 permisos |
 | 3 | `PATCH /vehicles/:vehicleId/sharing-requests/:requestId/cancel` | `auth` + `owner` | `:requestId` UUID | `200 { id, status: "CANCELLED", respondedAt }` | 404 solicitud ajena al vehículo; 409 ya respondida/cancelada; 403/404 permisos |
 | 4 | `GET /vehicles/:vehicleId/members` | `auth` + `owner` | solo `:vehicleId` | `200 { items: [{ userId, email, role: "GUEST", assignedAt }] }` (solo INVITADOS) | 403/404 permisos |
@@ -48,7 +48,7 @@ Fuentes de verdad usadas: `docs/caso-de-uso-compartir-vehiculo.md`, `docs/caso-d
 
 Notas del contrato:
 
-- El mensaje de la fila 1 es idéntico para correo inexistente, sin email y envío exitoso. Los errores 409/429 sí son explícitos porque no revelan si un correo está registrado (R33).
+- El mensaje de éxito es siempre "Solicitud enviada." Un correo sin cuenta única responde 400 con "No encontramos una cuenta de AutoStory con ese correo. Pídele que se registre y vuelve a enviar la solicitud."; se acepta explícitamente la fuga (R33) y se mitiga con autenticación, vehículo propio y límite de 10 envíos/minuto. Los errores 409/429 siguen siendo explícitos.
 - `senderName` es `sender.name` o `"Un usuario de AutoStory"` si es nulo/vacío (R35). Nunca se serializan `licensePlate`, `vin`, `photoUrl`, mantenciones, repuestos ni citas en el detalle.
 - Las filas 1–6 se registran en `src/routes/vehicles.routes.ts` (el router ya está montado en `/vehicles`); las filas 7–9 en un router nuevo montado en `/sharing-requests`.
 - **Declarar `DELETE /:vehicleId/members/me` antes que `DELETE /:vehicleId/members/:userId`**: si no, Express interpreta `me` como `userId` y el DUEÑO recibiría 409 en vez de poder salir.
@@ -100,7 +100,7 @@ frontend/
 | Columna, FK e índice en una segunda migración transaccional | Solo el `ALTER TYPE` necesita comportamiento especial; el resto se beneficia de rollback atómico. |
 | Enviar búsqueda con `LOWER(TRIM(email)) = LOWER(TRIM($1))` y `email IS NOT NULL` | R33 exige ignorar mayúsculas y espacios de borde sin crear usuario ni normalizar correos existentes. |
 | No tocar `normalizeEmail` de `user-sync.service.ts` | Hoy solo hace `trim`; cambiarlo reescribiría emails existentes y está fuera del alcance. |
-| 0 o >1 coincidencias de email → respuesta 202 neutral | No se crea nada y no se revela qué correos están registrados (R33). |
+| 0 o >1 coincidencias de email → 400 con mensaje explícito | Decisión de producto: se acepta revelar qué correos están registrados; mitigado por autenticación, vehículo propio y límite de 10 envíos/minuto (R33). |
 | Duplicado PENDING → índice parcial y `23505` mapeado a 409 | La restricción la garantiza la BD aunque haya dos peticiones concurrentes. |
 | Tope de 10 PENDING por vehículo con `pg_advisory_xact_lock(hashtext($1))` y `$1 = 'sharing:' + vehicleId` | Mismo patrón ya usado en `vehicles.service.ts`; el prefijo evita colisiones con otros locks del proceso y evita que dos envíos concurrentes rebasen el límite. |
 | Rate limit de 10 envíos/minuto por usuario en memoria | `express-rate-limit` 8.7.3 ya está instalado; usar `limit` (no `max`) y `keyGenerator: (req) => req.auth.userId`, igual que el limiter de VIN. |
@@ -231,9 +231,9 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 ### Paso 2 — DUEÑO: enviar, listar y cancelar
 
 - Archivos: `schemas/sharing-request.schema.ts`, `services/sharing-requests.service.ts`, `controllers/sharing-requests.controller.ts`, `routes/vehicles.routes.ts`, `services/notifications.service.ts`, `jobs/notify.ts`, `utils/messages.ts`, tests unitario e integración.
-- Lógica: búsqueda `LOWER(TRIM(email))` con `email IS NOT NULL`; 0 o >1 → 202 sin insertar. Uno mismo, ya miembro, PENDING previa (`23505`) y tope de 10 → 409; 10 envíos/minuto → 429. `pg_advisory_xact_lock(hashtext($1))` con `$1 = 'sharing:' + vehicleId` alrededor del conteo de pendientes e inserción. Notificación `SHARING_REQUEST_RECEIVED` al receptor en la misma transacción, con `sharingRequestId` apuntando a la solicitud: es su único punto de entrada (R39), así que el cambio M va en este paso. Listar devuelve el email actual del receptor vía join, nunca datos de vehículo. Cancelar con `UPDATE ... WHERE status='PENDING'` y `affected === 1`; 409 si no.
+- Lógica: búsqueda `LOWER(TRIM(email))` con `email IS NOT NULL`; 0 o >1 → 400 con el mensaje de cuenta no encontrada y sin insertar. Uno mismo, ya miembro, PENDING previa (`23505`) y tope de 10 → 409; 10 envíos/minuto → 429. `pg_advisory_xact_lock(hashtext($1))` con `$1 = 'sharing:' + vehicleId` alrededor del conteo de pendientes e inserción. Notificación `SHARING_REQUEST_RECEIVED` al receptor en la misma transacción, con `sharingRequestId` apuntando a la solicitud: es su único punto de entrada (R39), así que el cambio M va en este paso. Listar devuelve el email actual del receptor vía join, nunca datos de vehículo. Cancelar con `UPDATE ... WHERE status='PENDING'` y `affected === 1`; 409 si no.
 - Seguridad: nadie puede enviar por otro usuario; el dueño se resuelve desde `req.auth.userId`.
-- Verificación: V backend + tests nuevos (202 neutral para correo inexistente, 409 en duplicado, 429 en el undécimo envío (usuario exclusivo para ese test), 404 en solicitud de otro vehículo, y que `GET /notifications` devuelve `sharingRequestId` distinto de null en la notificación creada). Integración la ejecuta el usuario contra la BD de tests.
+- Verificación: V backend + tests nuevos (202 con "Solicitud enviada." para correo con mayúsculas distintas, 400 sin filas ni notificación para correo inexistente, 409 en duplicado, 429 en el undécimo envío (usuario exclusivo para ese test), 404 en solicitud de otro vehículo, y que `GET /notifications` devuelve `sharingRequestId` distinto de null en la notificación creada). Integración la ejecuta el usuario contra la BD de tests.
 - Commit: `feat(paso 2): enviar, listar y cancelar solicitudes de compartir`
 
 ### Paso 3 — receptor: detalle, aceptar y rechazar
@@ -263,7 +263,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 ### Paso 6 — modales del DUEÑO y del INVITADO
 
 - Archivos: `frontend/src/components/ShareVehicleModal.tsx`, `frontend/src/features/vehicles/screens/VehicleDetailScreen.tsx`.
-- Cambios: el ⋮ de OWNER gana "Compartir vehículo"; el de GUEST gana "Abandonar vehículo" con `ConfirmModal` (mensaje "¿Abandonar vehículo?"). El modal de compartir reúne campo email, pendientes con "Cancelar solicitud", invitados con "Revocar acceso" (confirmación con `ConfirmModal`) y el botón "Cerrar". Mensaje neutral exacto del caso de uso en el envío.
+- Cambios: el ⋮ de OWNER gana "Compartir vehículo"; el de GUEST gana "Abandonar vehículo" con `ConfirmModal` (mensaje "¿Abandonar vehículo?"). El modal de compartir reúne campo email, pendientes con "Cancelar solicitud", invitados con "Revocar acceso" (confirmación con `ConfirmModal`) y el botón "Cerrar". En el envío muestra "Solicitud enviada." en verde y el mensaje de la API como error si no hay cuenta.
 - Verificación: V frontend + prueba manual en web y móvil de que el OWNER ve compartir pero no abandonar, el GUEST ve abandonar pero no compartir, y que cancelar un modal no muta nada.
 - Commit: `feat(paso 6): modales para compartir, revocar y abandonar`
 
@@ -288,7 +288,7 @@ Convención: todo paso termina con **V** (sección 3). El SHA de cada paso se an
 | Versión de PostgreSQL | **No verificado.** PG 11 prohíbe `ADD VALUE` en transacción; PG 12+ no permite usar el valor hasta el commit. | `SELECT version();` en Neon y en la BD de tests antes del paso 1. El diseño de dos migraciones funciona en ambos. |
 | `ForbiddenTransactionModeOverrideError` | **Confirmado** en la API de TypeORM 0.3.31: `transaction = false` exige `migrationsTransactionMode` distinto de `all`. | `npm run typecheck` no lo detecta; comprobar el valor en ambos data sources y ejecutar la integración en BD de tests. |
 | `down` de enums con pérdida semántica | **Confirmado:** PostgreSQL no permite quitar valores de un enum; reconstruir el tipo mapa `CANCELLED → REJECTED` y los 3 tipos nuevos a valores antiguos. | Revisar el `down` en el diff; ejecutar `up`/`down`/`up` solo en la BD de tests. No ejecutar `down` en Neon sin avisar. |
-| La lista de pendientes revela correos | **Riesgo aceptado:** el dueño puede inferir si un correo existe (a) por el 409 al reenviar a una solicitud PENDING previa y (b) porque la lista solo contiene solicitudes creadas; el mensaje 202 neutral solo evita la señal inmediata. Mitigado por el límite de 10 envíos/minuto y por requerir autenticación y vehículo propio. | Test: correo inexistente da 202 y no inserta fila ni notificación; comprobar que el 409 de duplicado y el contenido de la lista son el canal de inferencia documentado, sin afirmar que no hay fuga. |
+| La lista de pendientes revela correos | **Aceptado explícitamente:** el 400 para correo sin cuenta también revela qué correos están registrados; se suma al 409 de reenvío y a la lista de pendientes. Mitigado por autenticación, vehículo propio y límite de 10 envíos/minuto. | Test: correo inexistente da 400 con el mensaje nuevo y no inserta fila ni notificación; comprobar que el 409 de duplicado y el contenido de la lista siguen siendo canales de inferencia documentados. |
 | Notificación borrada por retención R26 | **Confirmado:** si se borra la notificación de una solicitud PENDING, el receptor pierde su único punto de entrada; no hay lista de recibidas. Mitigación: el dueño ve la pendiente y puede cancelarla. | Test: tras simular limpieza de notificaciones, el dueño sigue viendo la pendiente y puede cancelarla. |
 | Borrado de cuenta con la nueva FK | **Confirmado parcialmente:** `account-deletion.service.ts` borra `sharing_requests` antes que `users`, y las notificaciones pueden caer por cascada de ambos lados. Hay que comprobar el orden con la FK nueva de `notifications.sharing_request_id`. | `npm run test:integration` (suite `account-deletion`) contra la BD de tests; si aparece violación de FK, ajustar solo el orden de borrado en ese service. |
 | Foto firmada del ex invitado | **No verificado en ejecución:** al revocar/abandonar, la URL firmada podría seguir sirviendo la foto hasta caducar; el acceso al vehículo sí debe desaparecer. | Test de que `GET /vehicles` ya no lista el vehículo para el ex invitado; la foto se sirve desde URL firmada con caducidad (R30). |

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -22,6 +25,7 @@ import { TextField } from './TextField';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { ConfirmModal } from './ui/ConfirmModal';
+import { IconButton } from './ui/IconButton';
 import {
   colors,
   fontSizes,
@@ -55,6 +59,7 @@ export function ShareVehicleModal({
   const sendMutation = useSendSharingRequest();
   const cancelMutation = useCancelSharingRequest();
   const revokeMutation = useRevokeSharingMember();
+  const { height: windowHeight } = useWindowDimensions();
 
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -149,14 +154,25 @@ export function ShareVehicleModal({
         transparent
         visible={visible}
       >
-        <View style={styles.backdrop}>
-          <View style={styles.card}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.backdrop}
+        >
+          <View style={[styles.card, { maxHeight: windowHeight * 0.85 }]}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Compartir vehículo</Text>
+              <IconButton
+                accessibilityLabel="Cerrar"
+                icon="close"
+                onPress={close}
+              />
+            </View>
+
             <ScrollView
               contentContainerStyle={styles.content}
               keyboardShouldPersistTaps="handled"
+              style={styles.body}
             >
-              <Text style={styles.title}>Compartir vehículo</Text>
-
               <TextField
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -232,11 +248,13 @@ export function ShareVehicleModal({
                   />
                 </Card>
               ))}
-
-              <Button label="Cerrar" onPress={close} variant="secondary" />
             </ScrollView>
+
+            <View style={styles.footer}>
+              <Button label="Cerrar" onPress={close} variant="secondary" />
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmModal
@@ -272,13 +290,30 @@ const styles = StyleSheet.create({
     ...shadow,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    maxHeight: '85%',
-    width: '100%',
+    flexShrink: 1,
     maxWidth: layout.modalMaxWidth,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  body: {
+    flexShrink: 1,
   },
   content: {
     gap: spacing.md,
-    padding: spacing.xl,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  footer: {
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
   title: {
     ...typography.title,

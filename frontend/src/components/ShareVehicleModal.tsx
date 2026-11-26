@@ -183,6 +183,7 @@ export function ShareVehicleModal({
                 onChangeText={(text) => {
                   setEmail(text);
                   setEmailError(null);
+                  setError(null);
                 }}
                 placeholder="correo@ejemplo.cl"
                 value={email}

@@ -54,9 +54,9 @@ export function SharingRequestModal({
   const busy = acceptMutation.isPending || rejectMutation.isPending;
   const queryError = requestQuery.isError
     ? requestQuery.error instanceof ApiError && requestQuery.error.status === 409
-      ? 'Ya respondiste esta solicitud'
+      ? requestQuery.error.message
       : requestQuery.error instanceof ApiError && requestQuery.error.status === 404
-        ? 'La solicitud ya no está disponible'
+        ? 'La solicitud ya no está disponible.'
         : 'No se pudo cargar la solicitud.'
     : null;
 

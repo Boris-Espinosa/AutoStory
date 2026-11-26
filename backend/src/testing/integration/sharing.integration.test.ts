@@ -487,6 +487,33 @@ describe('API del receptor para responder solicitudes', () => {
     ).resolves.toMatchObject({ status: SharingRequestStatus.ACCEPTED });
   });
 
+  const conflictCases: Array<[SharingRequestStatus, string]> = [
+    [SharingRequestStatus.ACCEPTED, 'Ya respondiste esta solicitud.'],
+    [SharingRequestStatus.REJECTED, 'Ya respondiste esta solicitud.'],
+    [
+      SharingRequestStatus.CANCELLED,
+      'Esta solicitud ya no está disponible.',
+    ],
+  ];
+
+  it.each(conflictCases)(
+    'devuelve 409 con el mensaje de %s en detalle, accept y reject',
+    async (status, message) => {
+      const { request } = await seedPendingRequest();
+      await sharingRequests.update({ id: request.id }, { status });
+
+      for (const [method, path] of [
+        ['GET', `/sharing-requests/${request.id}`],
+        ['POST', `/sharing-requests/${request.id}/accept`],
+        ['POST', `/sharing-requests/${request.id}/reject`],
+      ] as const) {
+        const response = await api(method, path, { userId: 'user-2' });
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ message });
+      }
+    },
+  );
+
   it('si falla la membresía, la solicitud sigue PENDING y no hay notificación', async () => {
     const { request } = await seedPendingRequest();
     await dataSource.query(`

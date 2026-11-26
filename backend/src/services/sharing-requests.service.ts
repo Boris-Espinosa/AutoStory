@@ -99,6 +99,12 @@ function isDuplicate(error: unknown): boolean {
   return (error as { code?: unknown } | null)?.code === '23505';
 }
 
+function conflictMessage(status: SharingRequestStatus): string {
+  return status === SharingRequestStatus.CANCELLED
+    ? 'Esta solicitud ya no está disponible.'
+    : 'Ya respondiste esta solicitud.';
+}
+
 export class SharingRequestsService {
   constructor(private readonly repositories: SharingRequestsRepositories) {}
 
@@ -267,7 +273,7 @@ export class SharingRequestsService {
     const row = rows[0];
 
     if (row.status !== SharingRequestStatus.PENDING) {
-      throw new HttpError(409, 'La solicitud ya no está pendiente.');
+      throw new HttpError(409, conflictMessage(row.status));
     }
 
     return {
@@ -321,7 +327,7 @@ export class SharingRequestsService {
           if (existing.length === 0) {
             throw new HttpError(404, 'Solicitud no encontrada.');
           }
-          throw new HttpError(409, 'La solicitud ya no está pendiente.');
+          throw new HttpError(409, conflictMessage(existing[0].status));
         }
 
         const request = rows[0];
